@@ -2,159 +2,115 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <string.h>
 #include <signal.h>
 
-int dSC = 0;
-int dS2C = 0;
-int dS = 0;
 int continu = 1;
+int MAX_CLIENTS = 20;
+int SIZE_MESSAGE = 20;
+pthread_mutex_t mutex;
+struct params {
+  int dSC;
+  int numero;
+  int * clients;
+  int * nbClients;
+};
 
 void arret(int sig) {
   continu = 0;
-  if(-1== shutdown(dSC, 2)) {
-    perror("Erreur shutdown dSC");
-    exit(1);
-  }
-  if(-1== shutdown(dS2C, 2)) {
-    perror("Erreur shutdown dS2C");
-    exit(1);
-  }
-  if(-1 == shutdown(dS, 2)) {
-    perror("Erreur shutdown dS");
-    exit(1);
-  }
-  printf("\nArrêt\n");
-  exit(0);
 }
+void* client(void * parametres) {
+  struct params* p = (struct params*) parametres;
+  char msg[SIZE_MESSAGE];
+  
+  do {
+    int r = recv(p->dSC, msg, SIZE_MESSAGE*sizeof(char), 0);
+    if(-1 == r) {
+      perror("Erreur recv client");exit(1);
+    }
+    int nb = *(p->nbClients);
+    for(int i = 0; i<nb; i++) {
+      if(p->numero != i && p->clients[i] != -1) {
+        int s = send(p->clients[i], msg, strlen(msg)+1, 0);
+        if(-1 == s) {
+          perror("Erreur send client");exit(1);
+        }
+      }
+    }
+  } while(strcmp(msg, "fin\n") != 0);
 
-void accept_client(int ordre, int dS, struct sockaddr_in* aC, socklen_t lg) {
-  if(ordre != 2) {
-    dSC = accept(dS, (struct sockaddr*) aC,&lg) ;
-    if(dSC == -1) {
-      perror("Erreur accept");
-      exit(1);
-    }
-    printf("Client 1 Connecté\n");
+  p->clients[p->numero] = -1;
+  if(-1 == close(p->dSC)) { 
+    perror("Erreur close client");exit(1);
   }
-  else {
-    dS2C = accept(dS, (struct sockaddr*) aC,&lg) ;
-    if(dS2C == -1) {
-      perror("Erreur accept");
-      exit(1);
-    }
-    printf("Client 2 Connecté\n");
-  }
+  pthread_exit(0);
 }
 
 int main(int argc, char *argv[]) {
   
   if(argc != 2){
-    printf("Lancement : ./client port\n");
+    puts("Lancement : ./client port");
     exit(1);
   }
 
   const int port = atoi(argv[1]);
 
-  dS = socket(PF_INET, SOCK_STREAM, 0);
+  int dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
     perror("Erreur socket");
     exit(1);
   }
-  printf("Socket Créé\n");
-
+  puts("Socket Créé");
 
   struct sockaddr_in ad;
   ad.sin_family = AF_INET;
   ad.sin_addr.s_addr = INADDR_ANY;
   ad.sin_port = htons(port);
   if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
-    perror("Erreur bind");
-    exit(1);
+    perror("Erreur bind");exit(1);
   }
-  printf("Socket 1 Nommé\n");
+  puts("Socket 1 Nommé");
 
   if(-1 == listen(dS, 7)) {
-    perror("Erreur listen");
+    perror("Erreur listen");exit(1);
+  }
+  puts("Mode 1 écoute");
+
+  int nb_thread = 0;
+  int clients[MAX_CLIENTS];
+  pthread_t thread[MAX_CLIENTS];
+
+  signal(SIGINT, arret);
+  while(continu != 0) {
+    if(nb_thread < MAX_CLIENTS) {
+      struct sockaddr_in aC ;
+      socklen_t lg = sizeof(struct sockaddr_in);
+      int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
+      if(dSC == -1) {
+        perror("Erreur accept");exit(1);
+      }
+
+      puts("Client Connecté");
+      clients[nb_thread] = dSC;
+      struct params* p = (struct params*) malloc(sizeof(struct params));
+      p->dSC = dSC;
+      p->numero = nb_thread;
+      p->clients = clients;
+      p->nbClients = &nb_thread;
+      pthread_create(&thread[nb_thread++], NULL, client, (void*)p);
+    }
+  }
+
+  for (int i=0;i<nb_thread;i++) 
+    pthread_cancel(thread[i]);
+  //pthread_mutex_destroy(&mutex);
+
+  if(-1 == shutdown(dS, 2)) {
+    perror("Erreur shutdown serveur");
     exit(1);
   }
-  printf("Mode 1 écoute\n");
-
-  struct sockaddr_in aC1 ;
-  socklen_t lg1 = sizeof(struct sockaddr_in) ;
-  accept_client(1, dS, &aC1, lg1);
-
-  struct sockaddr_in aC2 ;
-  socklen_t lg2 = sizeof(struct sockaddr_in) ;
-  accept_client(2, dS, &aC2, lg2);
-
-  int taille = 20;
-  char msg1[taille];
-  char msg2[taille];
-  int continu = 1; // Booléen
-  int reconnect = 0; // Booléen
-  int client1 = 1;
-  int client2 = 1;
-  signal(SIGINT, arret);
-  do {
-    if(reconnect == 1) {
-      strcpy(msg1, "");
-      strcpy(msg2, "");
-      accept_client(1, dS, &aC1, lg1);
-      accept_client(2, dS, &aC2, lg2);
-      reconnect = 0;
-      printf("hallo");
-    }
-    //RECV FROM 1
-    if(!reconnect) {
-      client1 = recv(dSC, msg1, taille*sizeof(char), MSG_NOSIGNAL);
-      if(-1 == client1) {
-        perror("Erreur recv client 1");exit(1);
-      }
-      //Client 1 déconnecté
-      else if(0 == client1)
-        reconnect = 1;
-      else
-        printf("Message reçu de client 1: %s", msg1);
-    }
-    
-    //SEND TO 2
-    if(!reconnect) {
-      client2 = send(dS2C, msg1, taille*sizeof(char), MSG_NOSIGNAL);
-      if(-1 == client2) {
-        perror("Erreur send au client 2");exit(1);
-      }
-      //Client 2 déconnecté
-      else if(0 == client2)
-        reconnect = 1;
-    }
-
-    //RECV FROM 2
-    if(!reconnect) {
-      client2 = recv(dS2C, msg2, taille*sizeof(char), MSG_NOSIGNAL);
-      if(-1 == client2) {
-        perror("Erreur recv client 2");exit(1);
-      }
-      //Client 2 déconnecté
-      else if(0 == client2)
-        reconnect = 1;
-      else
-        printf("Message reçu de client 2 : %s", msg2);
-    }
-    
-    //SEND TO 1
-    if(!reconnect) {
-      client1 = send(dSC, msg2, taille*sizeof(char), MSG_NOSIGNAL);
-      if(-1 == client1) {
-        perror("Erreur send au client 1");exit(1);
-      }
-      //Client 1 déconnecté
-      else if(0 == client1)
-        reconnect = 1;
-    }
-
-  } while(continu);
-
-  printf("Fin du programme\n");
+  puts("Arrêt serveur");
   return 0;
 }

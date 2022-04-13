@@ -2,26 +2,60 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+void pereSend(int dS, int taille) {
+  char m[taille];
+  int s;
+  do {
+    puts("Entrer une chaîne de caractère");
+    fgets(m, taille, stdin);
+    s = send(dS, m, strlen(m)+1, 0);
+    if(-1 == s) {
+      perror("Erreur send");exit(1);
+    }
+    // Non déconnecté
+    else if(s != 0) {
+      puts("Message Envoyé");
+    }
+  } while(strcmp(m, "fin\n")!=0 && s!=0);
+}
+
+void filsRecv(int dS, int taille) {
+  char reception[taille];
+  int r;
+  do {
+    r = recv(dS, reception, sizeof(char)*20, 0);
+    if(-1 == r) {
+      perror("Erreur recv");exit(1);
+    }
+    // Non déconnecté
+    else if(r != 0) {
+      char msg[30] = "Reçu : ";
+      strcat(msg, reception);
+      puts(msg);
+    }
+  } while(strcmp(reception, "fin\n")!=0 && r!=0);
+}
 
 int main(int argc, char *argv[]) {
 
-  if(argc != 3 && argc != 4){
-    printf("Lancement : ./client ip port (ordre)\n");
+  if(argc != 3){
+    puts("Lancement : ./client ip port");
     exit(1);
   }
 
   const int port = atoi(argv[2]);
-  int ordre = 1;
-  if(argc == 4)
-    ordre = atoi(argv[3]);
 
   int dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
     perror("Erreur socket");
     exit(1);
   }
-  printf("Socket Créé\n");
+  puts("Socket Créé");
 
   struct sockaddr_in aS;
   aS.sin_family = AF_INET;
@@ -32,45 +66,25 @@ int main(int argc, char *argv[]) {
     perror("Erreur connect");
     exit(1);
   }
-  printf("Socket Connecté\n");
+  puts("Socket Connecté");
 
   int taille = 20;
-  char m[taille];
-  char reception[taille];
+  pid_t pid;
 
-  if(ordre == 2) {
-    if(-1 == recv(dS, reception, sizeof(char)*20, 0)) {
-      perror("Erreur recv 2");
-      exit(1);
-    }
-    printf("Réponse reçue : %s\n", reception);
+  pid = fork();
+	if (pid != 0) { // PERE
+    pereSend(dS, taille);
+    wait(0);
   }
-
-  do {
-    printf("Entrer une chaîne de caractère\n");
-    fgets(m, taille, stdin);
-    //SEND
-    if(-1 == send(dS, m, strlen(m)+1, 0)) {
-      perror("Erreur send");
-      exit(1);
-    }
-    printf("Message Envoyé\n");
-
-    //RECV
-    if(strcmp(m, "fin\n")!=0) {
-      if(-1 == recv(dS, reception, sizeof(char)*20, 0)) {
-        perror("Erreur recv");
-        exit(1);
-      }
-      printf("\nRéponse reçue : %s\n", reception);
-    }
-
-  } while(strcmp(m, "fin\n")!=0 && strcmp(reception, "fin\n")!=0);
+  else { // FILS
+    filsRecv(dS, taille);
+    kill(getppid(), SIGUSR1);
+  }
 
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");
     exit(1);
   }
-  printf("Fin du programme\n");
+  puts("Fin du client");
   return 0;
 }
