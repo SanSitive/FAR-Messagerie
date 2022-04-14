@@ -18,7 +18,7 @@ struct params {
   int * nbClients;
 };
 
-void arret(int sig) {
+void arret() {
   continu = 0;
 }
 void* client(void * parametres) {

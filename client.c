@@ -7,23 +7,66 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+int dS;
+
+/**
+ * @brief Ferme la socket client
+ * 
+ * @param dS 
+ */
+void stopClient(int dS) {
+  puts("Fin du client");
+  if(-1 == shutdown(dS,2)) {
+    perror("Erreur shutdown dS");exit(1);
+  }
+}
+
+/**
+ * @brief Fonction déclenché lors d'un contrôle C
+ * 
+ */
+void arret() {
+  wait(NULL); // Tuer le fils
+  char m[10] = "fin\n";
+  if(-1 == send(dS, m, strlen(m)+1, 0)) { // Prévenir le serveur
+    perror("Erreur send");exit(1);
+  }
+  stopClient(dS); // Fermer le socket
+  exit(EXIT_SUCCESS);
+}
+^
+/**
+ * @brief Gère les entrées des utilisateurs pour envoyer au serveur
+ * 
+ * @param dS 
+ * @param taille 
+ */
 void pereSend(int dS, int taille) {
   char m[taille];
   int s;
   do {
     puts("Entrer une chaîne de caractère");
     fgets(m, taille, stdin);
-    s = send(dS, m, strlen(m)+1, 0);
-    if(-1 == s) {
-      perror("Erreur send");exit(1);
-    }
-    // Non déconnecté
-    else if(s != 0) {
-      puts("Message Envoyé");
+    
+    if(strlen(m) > 0) {
+      s = send(dS, m, strlen(m)+1, 0);
+      if(-1 == s) {
+        perror("Erreur send");exit(1);
+      }
+      // Non déconnecté
+      else if(s != 0) {
+        puts("Message Envoyé");
+      }
     }
   } while(strcmp(m, "fin\n")!=0 && s!=0);
 }
 
+/**
+ * @brief Gère la réception des messages du serveur
+ * 
+ * @param dS 
+ * @param taille 
+ */
 void filsRecv(int dS, int taille) {
   char reception[taille];
   int r;
@@ -50,7 +93,7 @@ int main(int argc, char *argv[]) {
 
   const int port = atoi(argv[2]);
 
-  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
     perror("Erreur socket");
     exit(1);
@@ -73,18 +116,18 @@ int main(int argc, char *argv[]) {
 
   pid = fork();
 	if (pid != 0) { // PERE
+    signal(SIGINT, arret);
     pereSend(dS, taille);
-    wait(0);
+    kill(pid, SIGINT);
+    stopClient(dS);
+    exit(EXIT_SUCCESS);
   }
   else { // FILS
     filsRecv(dS, taille);
-    kill(getppid(), SIGUSR1);
+    /*stopClient(dS);
+    kill(getppid(), SIGINT);
+    exit(EXIT_SUCCESS);*/
   }
 
-  if(-1 == shutdown(dS,2)) {
-    perror("Erreur shutdown dS");
-    exit(1);
-  }
-  puts("Fin du client");
-  return 0;
+  exit(EXIT_SUCCESS);
 }
