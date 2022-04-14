@@ -7,10 +7,14 @@
 #include <string.h>
 #include <signal.h>
 
-int continu = 1;
 int MAX_CLIENTS = 20;
 int SIZE_MESSAGE = 20;
+
+int dS;
 pthread_mutex_t mutex;
+int nb_thread;
+pthread_t *thread;
+
 struct params {
   int dSC;
   int numero;
@@ -18,8 +22,30 @@ struct params {
   int * nbClients;
 };
 
+/**
+ * @brief Ferme la socket serveur
+ * 
+ * @param dS 
+ */
+void stopServeur(int dS) {
+  for (int i=0;i<nb_thread;i++) 
+    pthread_cancel(thread[i]);
+  //pthread_mutex_destroy(&mutex);
+  free(thread);
+
+  if(-1 == shutdown(dS, 2)) {
+    perror("Erreur shutdown serveur");
+    exit(1);
+  }
+  puts("Arrêt serveur");
+}
+/**
+ * @brief Fonction déclenché lors d'un contrôle C
+ * 
+ */
 void arret() {
-  continu = 0;
+  stopServeur(dS);
+  exit(EXIT_SUCCESS);
 }
 void* client(void * parametres) {
   struct params* p = (struct params*) parametres;
@@ -57,7 +83,7 @@ int main(int argc, char *argv[]) {
 
   const int port = atoi(argv[1]);
 
-  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
     perror("Erreur socket");
     exit(1);
@@ -78,12 +104,12 @@ int main(int argc, char *argv[]) {
   }
   puts("Mode 1 écoute");
 
-  int nb_thread = 0;
+  nb_thread = 0;
   int clients[MAX_CLIENTS];
-  pthread_t thread[MAX_CLIENTS];
+  thread = (pthread_t*)malloc(MAX_CLIENTS*sizeof(pthread_t));
 
   signal(SIGINT, arret);
-  while(continu != 0) {
+  while(1) {
     if(nb_thread < MAX_CLIENTS) {
       struct sockaddr_in aC ;
       socklen_t lg = sizeof(struct sockaddr_in);
@@ -103,14 +129,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  for (int i=0;i<nb_thread;i++) 
-    pthread_cancel(thread[i]);
-  //pthread_mutex_destroy(&mutex);
-
-  if(-1 == shutdown(dS, 2)) {
-    perror("Erreur shutdown serveur");
-    exit(1);
-  }
-  puts("Arrêt serveur");
-  return 0;
+  stopServeur(dS);
+  exit(EXIT_SUCCESS);
 }

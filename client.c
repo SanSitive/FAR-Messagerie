@@ -10,12 +10,12 @@
 int dS;
 
 /**
- * @brief Ferme la socket client
+ * @brief Ferme la socket cliente
  * 
  * @param dS 
  */
 void stopClient(int dS) {
-  puts("Fin du client");
+  puts("Fin du clent");
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");exit(1);
   }
@@ -34,7 +34,7 @@ void arret() {
   stopClient(dS); // Fermer le socket
   exit(EXIT_SUCCESS);
 }
-^
+
 /**
  * @brief Gère les entrées des utilisateurs pour envoyer au serveur
  * 
@@ -56,6 +56,9 @@ void pereSend(int dS, int taille) {
       // Non déconnecté
       else if(s != 0) {
         puts("Message Envoyé");
+      }
+      else {
+        
       }
     }
   } while(strcmp(m, "fin\n")!=0 && s!=0);
