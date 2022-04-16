@@ -10,7 +10,7 @@
 int dS;
 
 /**
- * @brief Ferme la socket cliente
+ * @brief Ferme le socket client
  * 
  * @param dS 
  */
@@ -22,21 +22,21 @@ void stopClient(int dS) {
 }
 
 /**
- * @brief Fonction déclenché lors d'un contrôle C
+ * @brief Fonction déclenchée lors d'un contrôle C
  * 
  */
 void arret() {
-  wait(NULL); // Tuer le fils
+  wait(NULL); // Tue le fils
   char m[10] = "fin\n";
   if(-1 == send(dS, m, strlen(m)+1, 0)) { // Prévenir le serveur
     perror("Erreur send");exit(1);
   }
-  stopClient(dS); // Fermer le socket
+  stopClient(dS); // Fermer la socket
   exit(EXIT_SUCCESS);
 }
 
 /**
- * @brief Gère les entrées des utilisateurs pour envoyer au serveur
+ * @brief Gère les entrées de l'utilisateur pour envoyer au serveur
  * 
  * @param dS 
  * @param taille 
@@ -57,15 +57,12 @@ void pereSend(int dS, int taille) {
       else if(s != 0) {
         puts("Message Envoyé");
       }
-      else {
-        
-      }
     }
   } while(strcmp(m, "fin\n")!=0 && s!=0);
 }
 
 /**
- * @brief Gère la réception des messages du serveur
+ * @brief Gère la réception des messages du serveur, et affiche sur le terminal
  * 
  * @param dS 
  * @param taille 
@@ -96,6 +93,7 @@ int main(int argc, char *argv[]) {
 
   const int port = atoi(argv[2]);
 
+  //Création du client
   dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
     perror("Erreur socket");
@@ -117,11 +115,12 @@ int main(int argc, char *argv[]) {
   int taille = 20;
   pid_t pid;
 
+  // Fork pour que l'un gère l'envoie, l'autre la réception
   pid = fork();
 	if (pid != 0) { // PERE
     signal(SIGINT, arret);
     pereSend(dS, taille);
-    kill(pid, SIGINT);
+    kill(pid, SIGINT); //Tue le fils
     stopClient(dS);
     exit(EXIT_SUCCESS);
   }
