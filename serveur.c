@@ -21,6 +21,7 @@ struct params {
   int numero;
   int * clients;
   int * nbClients;
+  pthread_mutex_t * mutex;
 };
 
 /**
@@ -30,11 +31,13 @@ struct params {
  */
 void stopServeur(int dS) {
   //Ferme les threads des clients
-  for (int i=0;i<nb_thread;i++) 
+  pthread_mutex_lock(&mutex);
+  for (int i=0;i<nb_thread;i++){
     pthread_cancel(thread[i]);
-  //pthread_mutex_destroy(&mutex);
+  }
   free(thread);
-
+  pthread_mutex_unlock(&mutex);
+  pthread_mutex_destroy(&mutex);
   if(-1 == shutdown(dS, 2)) {
     perror("Erreur shutdown serveur");
     exit(1);
@@ -65,6 +68,7 @@ void* client(void * parametres) {
     if(-1 == r) {
       perror("Erreur recv client");exit(1);
     }
+    pthread_mutex_lock(p->mutex);
     int nb = *(p->nbClients);
     for(int i = 0; i<nb; i++) {
       if(p->numero != i && p->clients[i] != -1) {
@@ -74,6 +78,7 @@ void* client(void * parametres) {
         }
       }
     }
+    pthread_mutex_unlock(p->mutex);
   } while(strcmp(msg, "fin\n") != 0);
 
   // Change la valeur dans la liste des clients à -1 pour indiquer qu'il n'est plus connecté au serveur
@@ -139,6 +144,8 @@ int main(int argc, char *argv[]) {
       if(dSC == -1) {
         perror("Erreur accept");exit(1);
       }
+      //
+      pthread_mutex_lock(&mutex);
 
       // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
       puts("Client Connecté");
@@ -148,7 +155,10 @@ int main(int argc, char *argv[]) {
       p->numero = nb_thread;
       p->clients = clients;
       p->nbClients = &nb_thread;
+      p->mutex = &mutex;
       pthread_create(&thread[nb_thread++], NULL, client, (void*)p);
+      //
+      pthread_mutex_unlock(&mutex);
     }
   }
 
