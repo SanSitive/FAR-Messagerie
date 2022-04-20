@@ -10,7 +10,7 @@
 #include <sys/sem.h>
 #include <semaphore.h>
 
-#define SIZE_MESSAGE 128
+#define SIZE_MESSAGE 128 //PBM pour quand on envoie le help
 int dS;
 
 /**

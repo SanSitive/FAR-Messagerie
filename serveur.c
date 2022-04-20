@@ -12,9 +12,11 @@
 
 #define MAX_CLIENTS 2
 #define SIZE_MESSAGE 128
+#define SIZE_HELP 243 //à changer si jamais on agrandi la taille de help.txt
 
 int dS;
 pthread_mutex_t mutex;
+pthread_mutex_t mutex_help; //Mutex pour le fichier help.txt
 int nb_thread;
 pthread_t *thread; //Liste des threads
 struct clientStruct ** clients; //Liste des clients
@@ -191,10 +193,18 @@ void* client(void * parametres) {
         transformCommand(msg);
 
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
-          char help[SIZE_MESSAGE] = "@help/h : Commandes\n@all/a : Liste User\n@disconnect/d : Se déconnecter\n";
-          if(-1 == send(dSC, help, strlen(help)+1, 0)) {
+          pthread_mutex_lock(&mutex_help);
+          FILE *fileSource;
+          fileSource = fopen("help.txt", "r");
+          char ch;
+          char help[SIZE_HELP] = "";
+          while( ( ch = fgetc(fileSource) ) != EOF )
+            strncat(help,&ch,1);
+          fclose(fileSource);
+         if(-1 == send(dSC, help, strlen(help)+1, 0)) {
             perror("Erreur send client");exit(1);
           }
+          pthread_mutex_unlock(&mutex_help);
         }
         else if(strcmp(msg, "@all") == 0 || strcmp(msg, "@a") == 0) {
           char all[SIZE_MESSAGE] = "";
@@ -232,10 +242,6 @@ void* client(void * parametres) {
   if(sem_post(&sem_place) == -1){
     perror("Erreur post sémaphore");
     exit(1);
-  }
-
-  if(-1 == close(dSC)) { 
-    perror("Erreur close client");exit(1);
   }
 
   pthread_exit(0);
