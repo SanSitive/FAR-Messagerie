@@ -7,8 +7,10 @@
 #include <string.h>
 #include <signal.h>
 #include <ctype.h>
+#include <sys/sem.h>
+#include <semaphore.h>
 
-#define MAX_CLIENTS 20
+#define MAX_CLIENTS 2
 #define SIZE_MESSAGE 128
 
 int dS;
@@ -16,6 +18,9 @@ pthread_mutex_t mutex;
 int nb_thread;
 pthread_t *thread; //Liste des threads
 struct clientStruct ** clients; //Liste des clients
+
+//Création d'un sémaphore indiquant le nombre de place restante
+sem_t sem_place;
 
 // Structure décrivant un client, envoyé dans les threads
 struct clientStruct {
@@ -217,10 +222,6 @@ void* client(void * parametres) {
     } while(continu == 1);
   }
 
-  if(-1 == close(dSC)) { 
-    perror("Erreur close client");exit(1);
-  }
-
   // On indique dans le tableau que le client n'est plus connecté
   pthread_mutex_lock(&mutex);
   clients[p->numero] = NULL;
@@ -228,6 +229,15 @@ void* client(void * parametres) {
   free(p->pseudo);
   free(p);
   pthread_mutex_unlock(&mutex);
+  if(sem_post(&sem_place) == -1){
+    perror("Erreur post sémaphore");
+    exit(1);
+  }
+
+  if(-1 == close(dSC)) { 
+    perror("Erreur close client");exit(1);
+  }
+
   pthread_exit(0);
 }
 
@@ -265,6 +275,12 @@ int main(int argc, char *argv[]) {
 
   const int port = atoi(argv[1]);
 
+  //On initialise le sémaphore indiquant le nombre de place restante
+  if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
+    perror("Erreur init sémaphore");
+    exit(1);
+  }
+
   // Lancement du serveur
   dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
@@ -300,34 +316,36 @@ int main(int argc, char *argv[]) {
   // On attend qu'un nouveau client veuille se connecter
   while(1) {
     // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
-    if(nb_thread < MAX_CLIENTS) {
-      struct sockaddr_in aC ;
-      socklen_t lg = sizeof(struct sockaddr_in);
-      int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
-      if(dSC == -1) {
-        perror("Erreur accept");exit(1);
-      }
-
-      // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
-      puts("Client Ajouté");
-      pthread_mutex_lock(&mutex);
-
-      struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
-      self->dSC = dSC;
-      self->pseudo = NULL; // Pas encore connecté
-      self->numero = getEmptyPosition(clients, MAX_CLIENTS);
-
-      clients[self->numero] = self;
-
-      pthread_create(&thread[nb_thread++], NULL, client, (void*)self);
-      for(int i=0; i<MAX_CLIENTS; i++) {
-        if(clients[i] != NULL) {
-          printf("%d : %d\n",i, clients[i]->dSC);
-        }
-      }
-      //
-      pthread_mutex_unlock(&mutex);
+    if(sem_wait(&sem_place) == 1){
+      perror("Erreur wait sémaphore");
+      exit(1);
     }
+    struct sockaddr_in aC ;
+    socklen_t lg = sizeof(struct sockaddr_in);
+    int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
+    if(dSC == -1) {
+      perror("Erreur accept");exit(1);
+    }
+
+    // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
+    puts("Client Ajouté");
+    pthread_mutex_lock(&mutex);
+
+    struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
+    self->dSC = dSC;
+    self->pseudo = NULL; // Pas encore connecté
+    self->numero = getEmptyPosition(clients, MAX_CLIENTS);
+
+    clients[self->numero] = self;
+
+    pthread_create(&thread[nb_thread++], NULL, client, (void*)self);
+    for(int i=0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) {
+        printf("%d : %d\n",i, clients[i]->dSC);
+      }
+    }
+    //
+    pthread_mutex_unlock(&mutex);
   }
 
   stopServeur(dS);
