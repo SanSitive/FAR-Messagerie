@@ -6,7 +6,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <ctype.h>
 
+#define SIZE_MESSAGE 128
 int dS;
 
 /**
@@ -15,7 +17,7 @@ int dS;
  * @param dS 
  */
 void stopClient(int dS) {
-  puts("Fin du clent");
+  puts("Fin du client");
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");exit(1);
   }
@@ -27,7 +29,7 @@ void stopClient(int dS) {
  */
 void arret() {
   wait(NULL); // Tue le fils
-  char m[10] = "fin\n";
+  char m[SIZE_MESSAGE] = "@disconnect";
   if(-1 == send(dS, m, strlen(m)+1, 0)) { // Prévenir le serveur
     perror("Erreur send");exit(1);
   }
@@ -41,12 +43,11 @@ void arret() {
  * @param dS 
  * @param taille 
  */
-void pereSend(int dS, int taille) {
-  char m[taille];
+void pereSend(int dS) {
+  char m[SIZE_MESSAGE];
   int s;
   do {
-    puts("Entrer une chaîne de caractère");
-    fgets(m, taille, stdin);
+    fgets(m, SIZE_MESSAGE, stdin);
     
     if(strlen(m) > 0) {
       s = send(dS, m, strlen(m)+1, 0);
@@ -58,7 +59,7 @@ void pereSend(int dS, int taille) {
         puts("Message Envoyé");
       }
     }
-  } while(strcmp(m, "fin\n")!=0 && s!=0);
+  } while(strcmp(m, "@d\n")!=0 && strcmp(m, "@disconnect\n")!=0 && s!=0);
 }
 
 /**
@@ -67,11 +68,11 @@ void pereSend(int dS, int taille) {
  * @param dS 
  * @param taille 
  */
-void filsRecv(int dS, int taille) {
-  char reception[taille];
+void filsRecv(int dS) {
+  char reception[SIZE_MESSAGE];
   int r;
   do {
-    r = recv(dS, reception, sizeof(char)*20, 0);
+    r = recv(dS, reception, sizeof(char)*SIZE_MESSAGE, 0);
     if(-1 == r) {
       perror("Erreur recv");exit(1);
     }
@@ -112,23 +113,43 @@ int main(int argc, char *argv[]) {
   }
   puts("Socket Connecté");
 
-  int taille = 20;
   pid_t pid;
 
-  // Fork pour que l'un gère l'envoie, l'autre la réception
-  pid = fork();
-	if (pid != 0) { // PERE
-    signal(SIGINT, arret);
-    pereSend(dS, taille);
-    kill(pid, SIGINT); //Tue le fils
-    stopClient(dS);
-    exit(EXIT_SUCCESS);
+  char m[SIZE_MESSAGE];
+
+  // Choix du pseudo
+  puts("Choisissez un pseudo :");
+  fgets(m, SIZE_MESSAGE, stdin);
+  if(-1 == send(dS, m, strlen(m)+1, 0)) {
+    perror("Erreur send Pseudo");exit(1);
   }
-  else { // FILS
-    filsRecv(dS, taille);
-    /*stopClient(dS);
-    kill(getppid(), SIGINT);
-    exit(EXIT_SUCCESS);*/
+  //Enlever \n à la fin du pseudo
+  m[strcspn(m, "\n")] = 0;
+  if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
+    perror("Erreur recv Pseudo");exit(1);
+  }
+
+  // Si pseudo accepté
+  if(strcmp(m, "OK") == 0) {
+    puts("Connexion réussie");
+    // Fork pour que l'un gère l'envoie, l'autre la réception
+    pid = fork();
+    if (pid != 0) { // PERE
+      signal(SIGINT, arret);
+      pereSend(dS);
+      kill(pid, SIGINT); //Tue le fils
+      stopClient(dS);
+      exit(EXIT_SUCCESS);
+    }
+    else { // FILS
+      filsRecv(dS);
+      /*stopClient(dS);
+      kill(getppid(), SIGINT);
+      exit(EXIT_SUCCESS);*/
+    }
+  }
+  else if(strcmp(m, "PseudoTaken") == 0) {
+    puts("Ce pseudo est déjà pris");
   }
 
   exit(EXIT_SUCCESS);
