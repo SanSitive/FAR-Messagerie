@@ -122,11 +122,12 @@ int main(int argc, char *argv[]) {
   // Choix du pseudo
   puts("Choisissez un pseudo :");
   fgets(m, SIZE_MESSAGE, stdin);
+  
+  //Enlever \n à la fin du pseudo
+  m[strcspn(m, "\n")] = 0;
   if(-1 == send(dS, m, strlen(m)+1, 0)) {
     perror("Erreur send Pseudo");exit(1);
   }
-  //Enlever \n à la fin du pseudo
-  m[strcspn(m, "\n")] = 0;
   if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
     perror("Erreur recv Pseudo");exit(1);
   }

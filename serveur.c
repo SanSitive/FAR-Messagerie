@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <sys/sem.h>
 #include <semaphore.h>
+#include <ctype.h>
 
 #define MAX_CLIENTS 2
 #define SIZE_MESSAGE 256
@@ -221,11 +222,50 @@ void* client(void * parametres) {
           }
         }
         else if(strcmp(msg, "@d") == 0 || strcmp(msg, "@disconnect") == 0) {
-          char all[SIZE_MESSAGE] = "Ta mère";
-          if(-1 == send(dSC, all, strlen(all)+1, 0)) {
-            perror("Erreur send client");exit(1);
-          }
           continu = 0;
+        }else if(msg[1] == 'm' && msg[2] == 'p'){
+          printf("coucou j'y arrive");
+          //On créer une place pour le message et le pseudo
+          int taillePM = strlen(msg) - 4;
+          char *pseudoMessage = malloc(taillePM);
+          //On récupère le pseudo et le message dans un premier temps
+          strncpy(pseudoMessage, msg + 4, taillePM);
+          //On cherche où est l'espace
+          int place = 0;
+          for (int i = 0; i < taillePM; i++){
+            if (isblank(pseudoMessage[i])>0){
+              place = i;
+            } 
+          }
+          //On créer une place pour le pseudo
+          int tailleP = place;
+          char *pseudo = malloc(tailleP);
+          strncpy(pseudo, pseudoMessage, tailleP);
+          //On créer une place pour le message
+          int tailleM = strlen(pseudoMessage) - tailleP;
+          char *message = malloc(tailleM);
+          strncpy(message, pseudoMessage + tailleP, tailleM);
+          printf("%s", pseudo);
+
+          //On cherche le pseudo dans la liste des pseudos existants 
+          pthread_mutex_lock(&mutex);
+          for(int i = 0; i<MAX_CLIENTS; i++) {
+            if(clients[i] != NULL) { //On vérifie que le client existe
+              if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
+                if(strcmp(pseudo, clients[i]->pseudo) == 0){
+                  if(-1 == send(clients[i]->dSC, message, strlen(message)+1, 0)) {
+                    perror("Erreur send client");
+                    exit(1);
+                  }
+                  printf("message envoyé");
+                  break;
+                }
+                printf("trouvé");
+              }
+            }
+          }
+          pthread_mutex_unlock(&mutex);
+          printf("jarrive jusqua la");
         }
       }
     } while(continu == 1);
