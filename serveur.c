@@ -39,10 +39,14 @@ struct clientStruct {
 void stopServeur(int dS) {
   //Ferme les threads des clients
   pthread_mutex_lock(&mutex);
+  char msg[20] = "@shutdown";
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
-      printf("%d : %d\n",i, clients[i]->dSC);
-      free(clients[i]->pseudo);
+      if(-1 == send(clients[i]->dSC, msg, 20, 0)) {
+        perror("Erreur send shutdown");exit(1);
+      }
+      if(clients[i]->pseudo != NULL)
+        free(clients[i]->pseudo);
       free(clients[i]);
     }
   }
@@ -94,18 +98,18 @@ int isPseudoTaken(char pseudo[]) {
 }
 
 /**
- * @brief Vérifie les informations de connexion d'un client.
+ * @brief Vérifie les informations de login d'un client.
  *        Retourne 1 si les informations sont bonnes, 0 sinon, ou si le pseudo est déjà pris
  * @param dSC
  * @param p
  * @return int
  */
-int connexion(int dSC, struct clientStruct * p) {
+int login(int dSC, struct clientStruct * p) {
   int res = 1;
   char msg[SIZE_MESSAGE];
   // Récupérer les infos
   if(-1 == recv(p->dSC, msg, SIZE_MESSAGE*sizeof(char), 0)) {
-    perror("Erreur recv connexion");exit(1);
+    perror("Erreur recv login");exit(1);
   }
 
   // Vérification
@@ -115,7 +119,7 @@ int connexion(int dSC, struct clientStruct * p) {
   if(res == 1) {
     char retour[20] = "OK";
     if(-1 == send(dSC, retour, 20, 0)) {
-      perror("Erreur send connexion");exit(1);
+      perror("Erreur send login");exit(1);
     }
     pthread_mutex_lock(&mutex);
     p->pseudo = (char*)malloc(sizeof(char)*strlen(msg)+1);
@@ -125,7 +129,7 @@ int connexion(int dSC, struct clientStruct * p) {
   else {
     char retour[20] = "PseudoTaken";
     if(-1 == send(dSC, retour, 20, 0)) {
-      perror("Erreur send connexion");exit(1);
+      perror("Erreur send login");exit(1);
     }
   }
 
@@ -158,29 +162,28 @@ void* client(void * parametres) {
   pthread_mutex_unlock(&mutex);
 
   // Si l'utilisateur a réussi à se connecter
-  if(connexion(dSC, p)) {
+  if(login(dSC, p)) {
     int continu = 1;
     // Messages de l'utilisateur, tant qu'il n'indique pas fin/@d/@disconnect
     do {
       char msg[SIZE_MESSAGE];
-      char t[SIZE_MESSAGE+60]; // A ENLEVER
 
       int r = recv(dSC, msg, SIZE_MESSAGE*sizeof(char), 0);
       if(-1 == r) {
         perror("Erreur recv client");exit(1);
       }
-      strcpy(t, msg); //A ENLEVER SI BUG REGLE
       
       // Message normal, on envoie aux autres clients
       if(msg[0] != '@') {
         pthread_mutex_lock(&mutex);
+        char msgPseudo[SIZE_MESSAGE];
+        strcpy(msgPseudo, p->pseudo);
+        strcat(msgPseudo, " : ");
+        strcat(msgPseudo, msg);
         for(int i = 0; i<MAX_CLIENTS; i++) {
           if(clients[i] != NULL) {
-            char str[3]; // CES 3 LIGNES AUSSI
-            snprintf( str, 3, "%d", clients[i]->dSC);
-            strcat(t, str);
             if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-              int s = send(clients[i]->dSC, t, strlen(t)+1, 0);
+              int s = send(clients[i]->dSC, msgPseudo, strlen(msgPseudo)+1, 0);
               if(-1 == s) {
                 perror("Erreur send client");exit(1);
               }
@@ -189,6 +192,7 @@ void* client(void * parametres) {
         }
         pthread_mutex_unlock(&mutex);
       }
+      // Commande
       else {
         transformCommand(msg);
 
@@ -213,6 +217,7 @@ void* client(void * parametres) {
             if(clients[i] != NULL) {
               if(clients[i]->pseudo != NULL) {
                 strcat(all, clients[i]->pseudo);
+                strcat(all, "\n");
               }
             }
           }
@@ -224,7 +229,6 @@ void* client(void * parametres) {
         else if(strcmp(msg, "@d") == 0 || strcmp(msg, "@disconnect") == 0) {
           continu = 0;
         }else if(msg[1] == 'm' && msg[2] == 'p'){
-          printf("coucou j'y arrive");
           //On créer une place pour le message et le pseudo
           int taillePM = strlen(msg) - 4;
           char *pseudoMessage = malloc(taillePM);
@@ -245,7 +249,6 @@ void* client(void * parametres) {
           int tailleM = strlen(pseudoMessage) - tailleP;
           char *message = malloc(tailleM);
           strncpy(message, pseudoMessage + tailleP, tailleM);
-          printf("%s", pseudo);
 
           //On cherche le pseudo dans la liste des pseudos existants 
           pthread_mutex_lock(&mutex);
@@ -253,19 +256,26 @@ void* client(void * parametres) {
             if(clients[i] != NULL) { //On vérifie que le client existe
               if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
                 if(strcmp(pseudo, clients[i]->pseudo) == 0){
-                  if(-1 == send(clients[i]->dSC, message, strlen(message)+1, 0)) {
+                  char msgComplet[SIZE_MESSAGE];
+                  strcpy(msgComplet, p->pseudo);
+                  strcat(msgComplet, " (mp) : ");
+                  strcat(msgComplet, message);
+                  if(-1 == send(clients[i]->dSC, msgComplet, strlen(msgComplet)+1, 0)) {
                     perror("Erreur send client");
                     exit(1);
                   }
-                  printf("message envoyé");
                   break;
                 }
-                printf("trouvé");
               }
             }
           }
           pthread_mutex_unlock(&mutex);
-          printf("jarrive jusqua la");
+        }
+        else {
+          char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
+          if(-1 == send(dSC, erreur, strlen(erreur)+1, 0)) {
+            perror("Erreur send client");exit(1);
+          }
         }
       }
     } while(continu == 1);
@@ -373,7 +383,6 @@ int main(int argc, char *argv[]) {
     }
 
     // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
-    puts("Client Ajouté");
     pthread_mutex_lock(&mutex);
 
     struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
@@ -382,15 +391,16 @@ int main(int argc, char *argv[]) {
     self->numero = getEmptyPosition(clients, MAX_CLIENTS);
 
     clients[self->numero] = self;
+    // Client connecté, on lui envoie la confirmation
+    char connexion[20] = "OK";
+    if(-1 == send(dSC, connexion, 20, 0)) {
+      perror("Erreur send connexion");exit(1);
+    }
 
     pthread_create(&thread[nb_thread++], NULL, client, (void*)self);
-    for(int i=0; i<MAX_CLIENTS; i++) {
-      if(clients[i] != NULL) {
-        printf("%d : %d\n",i, clients[i]->dSC);
-      }
-    }
     //
     pthread_mutex_unlock(&mutex);
+    puts("Client Ajouté");
   }
 
   stopServeur(dS);
