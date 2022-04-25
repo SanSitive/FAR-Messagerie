@@ -78,13 +78,14 @@ void filsRecv(int dS) {
     if(-1 == r) {
       perror("Erreur recv");exit(1);
     }
+    else if(strcmp(reception, "@shutdown") == 0) {
+      break;
+    }
     // Non déconnecté
     else if(r != 0) {
-      char msg[30] = "Reçu : ";
-      strcat(msg, reception);
-      puts(msg);
+      puts(reception);
     }
-  } while(strcmp(reception, "fin\n")!=0 && r!=0);
+  } while(strcmp(reception, "@d\n")!=0 && strcmp(reception, "@disconnect\n")!=0 && r!=0);
 }
 
 int main(int argc, char *argv[]) {
@@ -113,45 +114,56 @@ int main(int argc, char *argv[]) {
     perror("Erreur connect");
     exit(1);
   }
-  puts("Socket Connecté");
-
-  pid_t pid;
 
   char m[SIZE_MESSAGE];
 
-  // Choix du pseudo
-  puts("Choisissez un pseudo :");
-  fgets(m, SIZE_MESSAGE, stdin);
-  if(-1 == send(dS, m, strlen(m)+1, 0)) {
-    perror("Erreur send Pseudo");exit(1);
-  }
-  //Enlever \n à la fin du pseudo
-  m[strcspn(m, "\n")] = 0;
+  //On attends la confirmation de connexion au serveur
   if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
-    perror("Erreur recv Pseudo");exit(1);
+    perror("Erreur connexion au serveur");exit(1);
   }
 
-  // Si pseudo accepté
   if(strcmp(m, "OK") == 0) {
-    puts("Connexion réussie");
-    // Fork pour que l'un gère l'envoie, l'autre la réception
-    pid = fork();
-    if (pid != 0) { // PERE
-      signal(SIGINT, arret);
-      pereSend(dS);
-      kill(pid, SIGINT); //Tue le fils
-      stopClient(dS);
-      exit(EXIT_SUCCESS);
+    puts("Socket connecté");
+
+    // Choix du pseudo
+    puts("Choisissez un pseudo :");
+    fgets(m, SIZE_MESSAGE, stdin);
+    //Enlever \n à la fin du pseudo
+    m[strcspn(m, "\n")] = 0;
+    
+    if(-1 == send(dS, m, strlen(m)+1, 0)) {
+      perror("Erreur send Pseudo");exit(1);
     }
-    else { // FILS
-      filsRecv(dS);
-      /*stopClient(dS);
-      kill(getppid(), SIGINT);
-      exit(EXIT_SUCCESS);*/
+    if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
+      perror("Erreur recv Pseudo");exit(1);
+    }
+
+    // Si pseudo accepté
+    if(strcmp(m, "OK") == 0) {
+      puts("Login réussi");
+      pid_t pid;
+      // Fork pour que l'un gère l'envoie, l'autre la réception
+      pid = fork();
+      if (pid != 0) { // PERE
+        signal(SIGINT, arret);
+        pereSend(dS);
+        kill(pid, SIGINT); //Tue le fils
+        stopClient(dS);
+        exit(EXIT_SUCCESS);
+      }
+      else { // FILS
+        filsRecv(dS);
+        stopClient(dS);
+        kill(getppid(), SIGINT);
+        exit(EXIT_SUCCESS);
+      }
+    }
+    else if(strcmp(m, "PseudoTaken") == 0) {
+      puts("Ce pseudo est déjà pris");
     }
   }
-  else if(strcmp(m, "PseudoTaken") == 0) {
-    puts("Ce pseudo est déjà pris");
+  else {
+    puts("Le socket n'a pas pu se connecté au serveur");
   }
 
   exit(EXIT_SUCCESS);
