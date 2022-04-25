@@ -11,8 +11,7 @@
 #include <semaphore.h>
 
 #define MAX_CLIENTS 2
-#define SIZE_MESSAGE 128
-#define SIZE_HELP 243 //à changer si jamais on agrandi la taille de help.txt
+#define SIZE_MESSAGE 256
 
 int dS;
 pthread_mutex_t mutex;
@@ -197,7 +196,7 @@ void* client(void * parametres) {
           FILE *fileSource;
           fileSource = fopen("help.txt", "r");
           char ch;
-          char help[SIZE_HELP] = "";
+          char help[SIZE_MESSAGE] = "";
           while( ( ch = fgetc(fileSource) ) != EOF )
             strncat(help,&ch,1);
           fclose(fileSource);
