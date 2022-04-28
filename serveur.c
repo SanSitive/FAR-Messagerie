@@ -11,18 +11,24 @@
 #include <semaphore.h>
 #include <ctype.h>
 
-#define MAX_CLIENTS 2
+#include "stack.h"
+
+#define MAX_CLIENTS 5
 #define SIZE_MESSAGE 256
 
 int dS;
 pthread_mutex_t mutex;
 pthread_mutex_t mutex_help; //Mutex pour le fichier help.txt
-int nb_thread;
-pthread_t *thread; //Liste des threads
-struct clientStruct ** clients; //Liste des clients
+pthread_mutex_t mutex_thread; //Mutex pour la gestion des threads clients
 
-//Création d'un sémaphore indiquant le nombre de place restante
-sem_t sem_place;
+pthread_t *thread;              //Liste des threads
+struct clientStruct ** clients; //Liste des clients
+sem_t sem_place;                //Sémaphore indiquant le nombre de place restante
+
+pthread_t thread_cleaner; //Thread cleaner des threads client-serveur zombie
+sem_t sem_thread;         //Sémaphore indiquant le nombre de thread zombie à nettoyer
+Stack * zombieStack;      //Pile d'entier contenant les index des threads zombies
+
 
 // Structure décrivant un client, envoyé dans les threads
 struct clientStruct {
@@ -37,7 +43,9 @@ struct clientStruct {
  * @param dS 
  */
 void stopServeur(int dS) {
-  //Ferme les threads des clients
+  // Ferme le thread cleaner
+  pthread_cancel(thread_cleaner);
+  // Ferme les threads des clients
   pthread_mutex_lock(&mutex);
   char msg[20] = "@shutdown";
   for(int i=0; i<MAX_CLIENTS; i++) {
@@ -52,12 +60,17 @@ void stopServeur(int dS) {
   }
   free(clients);
 
-  for (int i=0;i<nb_thread;i++){
+  for (int i=0;i<MAX_CLIENTS;i++){
     pthread_cancel(thread[i]);
   }
   free(thread);
   pthread_mutex_unlock(&mutex);
   pthread_mutex_destroy(&mutex);
+
+  //Clear la pile
+  clearStack(zombieStack);
+  free(zombieStack);
+
 
   if(-1 == shutdown(dS, 2)) {
     perror("Erreur shutdown serveur");
@@ -283,16 +296,24 @@ void* client(void * parametres) {
 
   // On indique dans le tableau que le client n'est plus connecté
   pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_thread);
+  // On indique qu'il faut s'occuper du thread zombie
+  if(sem_post(&sem_thread) == -1){
+    perror("Erreur post sémaphore nb_thread_zombie");
+    exit(1);
+  }
+  pushStack(zombieStack, p->numero);
+  pthread_mutex_unlock(&mutex_thread);
   clients[p->numero] = NULL;
   p->dSC = -1;
   free(p->pseudo);
   free(p);
   pthread_mutex_unlock(&mutex);
+  // Nombre de place disponible incrémenté
   if(sem_post(&sem_place) == -1){
-    perror("Erreur post sémaphore");
+    perror("Erreur post sémaphore nb_place_dispo");
     exit(1);
   }
-
   pthread_exit(0);
 }
 
@@ -312,6 +333,37 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
     }
   }
   return p;
+}
+/**
+ * @brief Fonction lié au thread qui clean en boucle les thread zombie s'il en existe
+ * 
+ * @return void*
+ */
+void* cleaner(){
+  while(1){
+    // On attends qu'un thread client se ferme
+    if(sem_wait(&sem_thread) == 1){
+      perror("Erreur wait sémaphore");
+      exit(1);
+    }
+
+    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_thread);
+    int place = popStack(zombieStack);
+    void *valrep;
+    int rep = pthread_join(thread[place], &valrep);
+    pthread_mutex_unlock(&mutex_thread);
+    if (valrep == PTHREAD_CANCELED)
+      printf("The thread was canceled - ");
+    switch (rep) {
+      case 0:
+        printf("Thread %d a été joinned \n", place);
+        break;
+      default:
+        printf("Erreur durant le join du thread : %d\n",place);
+    }
+    pthread_mutex_unlock(&mutex);
+  }
 }
 
 /**
@@ -367,7 +419,10 @@ int main(int argc, char *argv[]) {
 
   signal(SIGINT, arret);
 
-  nb_thread = 0;
+  // Thread qui s'occupera des threads clients zombies
+  zombieStack = createStack();
+  pthread_create(&thread_cleaner, NULL, cleaner, NULL);
+
   // On attend qu'un nouveau client veuille se connecter
   while(1) {
     // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
@@ -397,8 +452,10 @@ int main(int argc, char *argv[]) {
       perror("Erreur send connexion");exit(1);
     }
 
-    pthread_create(&thread[nb_thread++], NULL, client, (void*)self);
-    //
+    pthread_mutex_lock(&mutex_thread);
+    pthread_create(&thread[self->numero], NULL, client, (void*)self);
+    pthread_mutex_unlock(&mutex_thread);
+
     pthread_mutex_unlock(&mutex);
     puts("Client Ajouté");
   }

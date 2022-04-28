@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   puts("Socket Créé");
+  puts("Connexion en cours");
 
   struct sockaddr_in aS;
   aS.sin_family = AF_INET;
