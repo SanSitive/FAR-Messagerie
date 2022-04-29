@@ -39,6 +39,20 @@ void arret() {
   exit(EXIT_SUCCESS);
 }
 
+int verifPseudo(char pseudo[]) {
+  int res = 1;
+  //Enlever \n à la fin du pseudo
+  pseudo[strcspn(pseudo, "\n")] = 0;
+  for(size_t i=0; i<strlen(pseudo); i++) {
+    if(isblank(pseudo[i])>0) {
+      res = 0;
+      break;
+    }
+  }
+
+  return res;
+}
+
 /**
  * @brief Gère les entrées de l'utilisateur pour envoyer au serveur
  * 
@@ -124,13 +138,20 @@ int main(int argc, char *argv[]) {
   }
 
   if(strcmp(m, "OK") == 0) {
-    puts("Socket connecté");
+    puts("Connexion réussie");
 
     // Choix du pseudo
-    puts("Choisissez un pseudo :");
-    fgets(m, SIZE_MESSAGE, stdin);
-    //Enlever \n à la fin du pseudo
-    m[strcspn(m, "\n")] = 0;
+    int verif = 0;
+    do {
+      puts("Choisissez un pseudo :");
+      fgets(m, SIZE_MESSAGE, stdin);
+    
+      verif = verifPseudo(m);
+      if(verif == 0) {
+        puts("Le pseudo ne doit pas contenir d'espace, réessayez :");
+      }
+    }
+    while(verif == 0);
     
     if(-1 == send(dS, m, strlen(m)+1, 0)) {
       perror("Erreur send Pseudo");exit(1);
