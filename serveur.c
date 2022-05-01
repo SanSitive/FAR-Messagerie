@@ -253,40 +253,65 @@ void listClients(int dSC) {
  */
 void dm(struct clientStruct* p, char msg[]) {
   //On créer une place pour le message et le pseudo
-  int taillePM = strlen(msg) - 4;
+  int taillePM = strlen(msg) - 3;
   char *pseudoMessage = (char*)malloc(taillePM);
   //On récupère le pseudo et le message dans un premier temps
-  strncpy(pseudoMessage, msg + 4, taillePM);
+  strncpy(pseudoMessage, msg + 3, taillePM);
   //On cherche où est l'espace
-  int place = 0;
-  for (int i = 0; i < taillePM; i++){
-    if (isblank(pseudoMessage[i])>0){
-      place = i;
-    } 
+  int j = 0;
+  int debutP = 0;
+  while(debutP == 0){
+    if (!(isblank(pseudoMessage[j])>0)){
+      debutP = j;
+    }
+    j++;
   }
+  int finP = 0 ;
+  while(finP == 0){
+    if (isblank(pseudoMessage[j])>0){
+      finP = j - 1;
+    } 
+    j++;
+  }
+
+  int debutM = 0;
+  while((debutM == 0) && j < taillePM){
+    if (!(isblank(pseudoMessage[j])>0)){
+      debutM = j;
+    }
+    j++;
+  }
+  
   //On créer une place pour le pseudo
-  int tailleP = place;
-  char *pseudo = (char*)malloc(tailleP);
-  strncpy(pseudo, pseudoMessage, tailleP);
+  int tailleP = finP - debutP + 1;
+  char *pseudo = (char*)malloc(tailleP + 1);
+  strncpy(pseudo, pseudoMessage + debutP, tailleP);
+  pseudo[tailleP] = '\0';
   //On créer une place pour le message
-  int tailleM = strlen(pseudoMessage) - tailleP;
+  int tailleM = strlen(pseudoMessage) - debutM + 1;
   char *message = (char*)malloc(tailleM);
-  strncpy(message, pseudoMessage + tailleP, tailleM);
+  strncpy(message, pseudoMessage + debutM, tailleM);
 
   //On cherche le pseudo dans la liste des pseudos existants 
   pthread_mutex_lock(&mutex);
   int found = 0;
-  for(int i=0; i<MAX_CLIENTS; i++) {
-    if(clients[i] != NULL) { //On vérifie que le client existe
-      if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
-        if(strcmp(pseudo, clients[i]->pseudo) == 0){
-          char msgComplet[SIZE_MESSAGE];
-          strcpy(msgComplet, p->pseudo);
-          strcat(msgComplet, " (mp) : ");
-          strcat(msgComplet, message);
-          sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
-          found = 1;
-          break;
+
+  //Si le client s'envoie un message à lui même
+  if(strcmp(p->pseudo, pseudo) == 0){
+          found = 2;
+  }else{
+    for(int i=0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) { //On vérifie que le client existe
+        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
+          if(strcmp(pseudo, clients[i]->pseudo) == 0){
+            char msgComplet[SIZE_MESSAGE];
+            strcpy(msgComplet, p->pseudo);
+            strcat(msgComplet, " (mp) : ");
+            strcat(msgComplet, message);
+            sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
+            found = 1;
+            break;
+          }
         }
       }
     }
@@ -294,8 +319,10 @@ void dm(struct clientStruct* p, char msg[]) {
   //Si le pseudo n'appartient à personne
   if(found == 0) {
     char erreur[SIZE_MESSAGE] = "Cet utilisateur n'existe pas ou n'est pas connecté";
-    strcat(erreur, pseudo);
-    sendMessage(p->dSC, erreur, "Erreur send erreur dm");
+    sendMessage(p->dSC, erreur, "Erreur send erreur dm found == 0");
+  }else if(found == 2){
+    char erreur[SIZE_MESSAGE] = "Vous ne pouvez pas vous envoyer un message à vous même";
+    sendMessage(p->dSC, erreur, "Erreur send erreur dm found == 2");
   }
 
   pthread_mutex_unlock(&mutex);
