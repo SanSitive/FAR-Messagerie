@@ -1,5 +1,6 @@
 client
 serveur
+download_client/
 
 # Prerequisites
 *.d

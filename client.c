@@ -56,6 +56,26 @@ int verifPseudo(char pseudo[]) {
   return res;
 }
 
+void sendFile(char fichier[]) {
+  struct stat st;
+  stat(fichier, &st);
+  int size = st.st_size;
+  char sizeString[10];
+  sprintf(sizeString, "%d", size);
+  printf("%s", sizeString);
+
+  FILE * fp = fopen(fichier, "r");
+  char msg[SIZE_MESSAGE];
+  strcpy(msg, "@sf ");
+  strcat(msg, fichier);
+  strcat(msg, " ");
+  strcat(msg, sizeString);
+  if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
+    perror("Erreur send");exit(1);
+  }
+  fclose(fp);
+}
+
 void selectFile(){
   struct stat st = {0};
   if(stat("./download_client", &st) == -1) {
@@ -90,10 +110,12 @@ void selectFile(){
       int input = atoi(m);
       if(input > 0 && input <= nb_file){
         char file_name[strlen(tab_file[input - 1]) + 1];
-        printf("Le fichier sélectionné est : %s",file_name);
-        for(int i =0; i<nb_file; i++){
+        strcpy(file_name, tab_file[input - 1]);
+        printf("Le fichier sélectionné est : %s\n",file_name);
+        for(int i=0; i<nb_file; i++){
           free(tab_file[i]);
         }
+        sendFile(file_name);
       }else{
         puts("Sélection annulée");
       }
