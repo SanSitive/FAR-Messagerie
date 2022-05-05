@@ -10,6 +10,7 @@
 #include <sys/sem.h>
 #include <semaphore.h>
 #include <ctype.h>
+#include <dirent.h>
 
 #include "stack.h"
 
@@ -17,7 +18,9 @@
 #define SIZE_MESSAGE 256
 
 int dS;
-pthread_mutex_t mutex;
+int dSFile;
+pthread_mutex_t mutex_file; //Mutex pour l'accès à l'ensemble des fichiers du server
+pthread_mutex_t mutex; //Mutex pour la liste des Clients
 pthread_mutex_t mutex_help; //Mutex pour le fichier help.txt
 pthread_mutex_t mutex_thread; //Mutex pour la gestion des threads clients
 
@@ -496,6 +499,7 @@ int main(int argc, char *argv[]) {
   }
 
   const int port = atoi(argv[1]);
+  const int port_file = port + 100;
 
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
@@ -505,21 +509,35 @@ int main(int argc, char *argv[]) {
   // Lancement du serveur
   dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
-    perror("Erreur socket");exit(1);
+    perror("Erreur socket client");exit(1);
   }
-  puts("Socket Créé");
+  dSFile = socket(PF_INET, SOCK_STREAM, 0);
+  if(dSFile == -1) {
+    perror("Erreur socket file");exit(1);
+  }
+  puts("Sockets Créés");
 
   struct sockaddr_in ad;
   ad.sin_family = AF_INET;
   ad.sin_addr.s_addr = INADDR_ANY;
   ad.sin_port = htons(port);
   if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
-    perror("Erreur bind");exit(1);
+    perror("Erreur bind client");exit(1);
   }
-  puts("Socket Nommé");
+  struct sockaddr_in ad2;
+  ad2.sin_family = AF_INET;
+  ad2.sin_addr.s_addr = INADDR_ANY;
+  ad2.sin_port = htons(port_file);
+  if(-1 == bind(dSFile, (struct sockaddr*)&ad2, sizeof(ad2))) {
+    perror("Erreur bind file");exit(1);
+  }
+  puts("Sockets Nommés");
 
   if(-1 == listen(dS, 7)) {
-    perror("Erreur listen");exit(1);
+    perror("Erreur listen client");exit(1);
+  }
+  if(-1 == listen(dSFile, 7)) {
+    perror("Erreur listen file");exit(1);
   }
   puts("Mode écoute");
 

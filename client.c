@@ -9,6 +9,9 @@
 #include <ctype.h>
 #include <sys/sem.h>
 #include <semaphore.h>
+#include <pthread.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #define SIZE_MESSAGE 256
 int dS;
@@ -53,6 +56,55 @@ int verifPseudo(char pseudo[]) {
   return res;
 }
 
+void selectFile(){
+  struct stat st = {0};
+  if(stat("./download_client", &st) == -1) {
+    mkdir("./download_client", 0700);
+  }
+  int nb_file = 0;
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir("./download_client")) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
+        nb_file++;
+      }
+    }
+    if(nb_file > 0){
+      char *tab_file[nb_file];
+      nb_file = 0;
+      puts("Veuillez entrer le numéro associé au fichier pour l'envoyer");
+      puts(" 0 : Annuler l'envoi");
+      rewinddir(dir);
+      while ((ent = readdir(dir)) != NULL) {
+        if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
+          tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+          strcpy(tab_file[nb_file],ent->d_name);
+          printf(" %d : %s \n",nb_file + 1,tab_file[nb_file]);
+          nb_file++;
+        }
+      }
+      closedir(dir);
+      char m[5];
+      fgets(m, 5, stdin);
+      int input = atoi(m);
+      if(input > 0 && input <= nb_file){
+        char file_name[strlen(tab_file[input - 1]) + 1];
+        printf("Le fichier sélectionné est : %s",file_name);
+        for(int i =0; i<nb_file; i++){
+          free(tab_file[i]);
+        }
+      }else{
+        puts("Sélection annulée");
+      }
+    }else{
+      puts("Aucun fichier dans le dossier");
+    }
+  }else{
+    perror("Erreur open directory");exit(1);
+  }
+}
+
 /**
  * @brief Gère les entrées de l'utilisateur pour envoyer au serveur
  * 
@@ -61,18 +113,22 @@ int verifPseudo(char pseudo[]) {
  */
 void pereSend(int dS) {
   char m[SIZE_MESSAGE];
-  int s;
+  int s = 1;
   do {
     fgets(m, SIZE_MESSAGE, stdin);
     
     if(strlen(m) > 0) {
-      s = send(dS, m, strlen(m)+1, 0);
-      if(-1 == s) {
-        perror("Erreur send");exit(1);
-      }
-      // Non déconnecté
-      else if(s != 0) {
-        puts("Message Envoyé");
+      if(strcmp(m, "@sendfile\n") == 0){
+        selectFile();
+      }else{
+        s = send(dS, m, strlen(m)+1, 0);
+        if(-1 == s) {
+          perror("Erreur send");exit(1);
+        }
+        // Non déconnecté
+        else if(s != 0) {
+          puts("Message Envoyé");
+        }
       }
     }
   } while(strcmp(m, "@d\n")!=0 && strcmp(m, "@disconnect\n")!=0 && s!=0);
