@@ -26,6 +26,7 @@ pthread_mutex_t mutex_help; //Mutex pour le fichier help.txt
 pthread_mutex_t mutex_thread; //Mutex pour la gestion des threads clients
 
 //---START CLIENTS---------------------------------------------------------//
+pthread_t file_manager;         //Thread gérant les demandes liés au transfert de fichiers
 pthread_t *thread;              //Liste des threads
 struct clientStruct ** clients; //Liste des clients
 sem_t sem_place;                //Sémaphore indiquant le nombre de place restante
@@ -122,6 +123,7 @@ void stopServeur(int dS) {
   clearStack(zombieStackFiles);
   free(zombieStackFiles);
 
+  pthread_cancel(file_manager);
 
   if(-1 == shutdown(dS, 2)) {
     perror("Erreur shutdown serveur");
@@ -449,6 +451,7 @@ void* client(void * parametres) {
 
 void* file(void * parametres) {
   struct fileStruct* f = (struct fileStruct *) parametres;
+  free(f);
   pthread_exit(0);
 }
 
@@ -469,8 +472,18 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
   }
   return p;
 }
+int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
+  int p = -1;
+  for(int i=0; i<taille; i++) {
+    if(tab[i] == NULL) {
+      p = i;
+      break;
+    }
+  }
+  return p;
+}
 
-void cleanerFiles() {
+void* cleanerFiles() {
   while(1) {
     // On attends qu'un thread file se ferme
     if(sem_wait(&sem_thread_files) == 1) {
@@ -529,7 +542,7 @@ void ajoutFile(int dSF) {
   self->filename = NULL; // Pas encore reçu les infos
   self->size = 0;
   //Faire un mutex
-  self->numero = getEmptyPosition(files, MAX_FILES);
+  self->numero = getEmptyPositionFile(files, MAX_FILES);
 
   files[self->numero] = self;
   char connexion[20] = "OK";
@@ -565,7 +578,7 @@ void ajoutClient(int dSC) {
   puts("Client Ajouté");
 }
 
-void acceptFiles() {
+void* acceptFiles() {
   // On attend une nouvelle demande de téléchargement de fichiers
   while(1) {
     // Tant que le nombre max de files n'est pas atteint, on va attendre une connexion
@@ -582,15 +595,16 @@ void acceptFiles() {
     // On lance un thread pour la demande d'upload de fichier
     ajoutFile(dSF);
   }
+  pthread_exit(0);
 }
 
-void acceptClients() {
-
+void* acceptClients() {
+  pthread_exit(0);
 }
 
 void initFiles(int port_file) {
   //On initialise le sémaphore indiquant le nombre de place restante
-  if(sem_init(&sem_file, 0, MAX_FILES) == 1){
+  if(sem_init(&sem_place_files, 0, MAX_FILES) == 1){
     perror("Erreur init sémaphore");exit(1);
   }
 
@@ -598,7 +612,7 @@ void initFiles(int port_file) {
   if(dSFile == -1) {
     perror("Erreur socket file");exit(1);
   }
-  puts("Sockets Créés");
+  puts("Socket File Créé");
 
   struct sockaddr_in ad;
   ad.sin_family = AF_INET;
@@ -682,6 +696,8 @@ int main(int argc, char *argv[]) {
   const int port_file = port + 100;
   initFiles(port_file);
   initClients(port);
+
+  pthread_create(&file_manager, NULL, acceptFiles, NULL);
 
   // CTRL-C
   signal(SIGINT, arret);

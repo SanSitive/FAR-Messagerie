@@ -20,9 +20,11 @@
 int dS;
 
 pthread_mutex_t mutex_file;
+pthread_mutex_t mutex_thread_file;
 
-pthread_t * thread_sendFile;
+pthread_t * thread_files;
 sem_t sem_place_files;          //Sémaphore indiquant le nombre de demande de fichier restant
+int * tabIndexThreadFile;       // Tableau servant à savoir quels index dans le tableau de thread de file sont disponibles
 
 pthread_t thread_cleaner_files; //Thread cleaner des threads file zombie
 sem_t sem_thread_files;         //Sémaphore indiquant le nombre de thread file zombie à nettoyer
@@ -52,6 +54,18 @@ void sendMessage(int dS, char msg[], char erreur[]) {
  * @param dS 
  */
 void stopClient(int dS) {
+  // Ferme les threads lié à l'upload de fichiers
+  for (int i=0;i<MAX_FILES;i++){
+    pthread_cancel(thread_files[i]);
+  }
+  free(thread_files);
+  free(tabIndexThreadFile);
+  pthread_cancel(thread_cleaner_files);
+  pthread_mutex_destroy(&mutex_file);
+  pthread_mutex_destroy(&mutex_thread_file);
+
+  // Préviens le serveur
+  sendMessage(dS, "@disconnect", "Erreur send disconnect");
   puts("Fin du client");
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");exit(1);
@@ -64,14 +78,6 @@ void stopClient(int dS) {
  */
 void arret() {
   wait(NULL); // Tue le fils
-
-  for (int i=0;i<MAX_FILES;i++){
-    pthread_cancel(thread_sendFile[i]);
-  }
-  free(thread_sendFile);
-  pthread_cancel(thread_cleaner); // Attends la fin du processus d'envoie de fichier
-
-  sendMessage(dS, "@disconnect", "Erreur send disconnect"); // Prévenir le serveur
   stopClient(dS); // Fermer la socket
   exit(EXIT_SUCCESS);
 }
@@ -96,7 +102,27 @@ int verifPseudo(char pseudo[]) {
  * @return void* 
  */
 void * cleaner() {
-  pthread_exit(0);
+  while(1) {
+    // On attends qu'un thread file se ferme
+    if(sem_wait(&sem_thread_files) == 1){
+      perror("Erreur wait sémaphore client");exit(1);
+    }
+    pthread_mutex_lock(&mutex_thread_file);
+    int place = popStack(zombieStackFiles);
+    void *valrep;
+    int rep = pthread_join(thread_files[place], &valrep);
+
+    if (valrep == PTHREAD_CANCELED)
+      printf("The thread was canceled - ");
+    switch (rep) {
+      case 0:
+        printf("Thread %d a été joinned \n", place);
+        break;
+      default:
+        printf("Erreur durant le join du thread : %d\n",place);
+    }
+    pthread_mutex_unlock(&mutex_thread_file);
+  }
 }
 
 /**
@@ -109,25 +135,28 @@ void* sendFileProcess(void * parametres) {
   pthread_mutex_lock(&mutex_file);
 
   struct stat st;
-  stat(fichier, &st);
+  stat(f->filename, &st);
   int size = st.st_size;
   char sizeString[10];
   sprintf(sizeString, "%d", size);
-  printf("%s", sizeString);
 
-  FILE * fp = fopen(fichier, "r");
+  FILE * fp = fopen(f->filename, "r");
   //@sf nom_fichier taille
   char msg[SIZE_MESSAGE];
   strcpy(msg, "@sf ");
-  strcat(msg, fichier);
+  strcat(msg, f->filename);
   strcat(msg, " ");
   strcat(msg, sizeString);
   //sendMessage(, msg, "Erreur send @sf");
   fclose(fp);
 
   pthread_mutex_unlock(&mutex_file);
+
+  pthread_mutex_lock(&mutex_thread_file);
+  tabIndexThreadFile[f->numero] = 1;
   free(f->filename);
   free(f);
+  pthread_mutex_unlock(&mutex_thread_file);
   pthread_exit(0);
 }
 
@@ -138,10 +167,10 @@ void* sendFileProcess(void * parametres) {
  * @param taille 
  * @return int 
  */
-int getEmptyPosition(struct clientStruct * tab[], int taille) {
+int getEmptyPosition(int tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
-    if(tab[i] == NULL) {
+    if(tab[i] == 1) {
       p = i;
       break;
     }
@@ -154,64 +183,71 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
  * 
  * @param fichier 
  */
-void sendFile(char fichier[]) {
-  char * filename = (char*)malloc(strlen(fichier)+1);
-
+void sendFile(char *filename) {
   struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
   self->filename = filename;
-  self->numero = getEmptyPosition(thread_sendFile, MAX_FILES);
+
+  pthread_mutex_lock(&mutex_thread_file);
+  self->numero = getEmptyPosition(tabIndexThreadFile, MAX_FILES);
+  tabIndexThreadFile[self->numero] = 0;
+  pthread_mutex_unlock(&mutex_thread_file);
 
   pthread_create(&thread_files[self->numero], NULL, sendFileProcess, (void*)self);
 }
 
 void selectFile(){
-  struct stat st = {0};
-  if(stat("./download_client", &st) == -1) {
-    mkdir("./download_client", 0700);
-  }
-  int nb_file = 0;
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir("./download_client")) != NULL) {
-    while ((ent = readdir(dir)) != NULL) {
-      if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
-        nb_file++;
-      }
+  if(getEmptyPosition(tabIndexThreadFile, MAX_FILES) > -1) {
+    struct stat st = {0};
+    if(stat("./download_client", &st) == -1) {
+      mkdir("./download_client", 0700);
     }
-    if(nb_file > 0){
-      char *tab_file[nb_file];
-      nb_file = 0;
-      puts("Veuillez entrer le numéro associé au fichier pour l'envoyer");
-      puts(" 0 : Annuler l'envoi");
-      rewinddir(dir);
+    int nb_file = 0;
+    DIR *dir;
+    struct dirent *ent;
+    if ((dir = opendir("./download_client")) != NULL) {
       while ((ent = readdir(dir)) != NULL) {
         if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
-          tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
-          strcpy(tab_file[nb_file],ent->d_name);
-          printf(" %d : %s \n",nb_file + 1,tab_file[nb_file]);
           nb_file++;
         }
       }
-      closedir(dir);
-      char m[5];
-      fgets(m, 5, stdin);
-      int input = atoi(m);
-      if(input > 0 && input <= nb_file){
-        char file_name[strlen(tab_file[input - 1]) + 1];
-        strcpy(file_name, tab_file[input - 1]);
-        printf("Le fichier sélectionné est : %s\n",file_name);
-        for(int i=0; i<nb_file; i++){
-          free(tab_file[i]);
+      if(nb_file > 0){
+        char *tab_file[nb_file];
+        nb_file = 0;
+        puts("Veuillez entrer le numéro associé au fichier pour l'envoyer");
+        puts(" 0 : Annuler l'envoi");
+        rewinddir(dir);
+        while ((ent = readdir(dir)) != NULL) {
+          if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
+            tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+            strcpy(tab_file[nb_file],ent->d_name);
+            printf(" %d : %s \n",nb_file + 1,tab_file[nb_file]);
+            nb_file++;
+          }
         }
-        sendFile(file_name);
+        closedir(dir);
+        char m[5];
+        fgets(m, 5, stdin);
+        int input = atoi(m);
+        if(input > 0 && input <= nb_file){
+          char *file_name = (char*) malloc(strlen(tab_file[input - 1]) + 1);
+          strcpy(file_name, tab_file[input - 1]);
+          printf("Le fichier sélectionné est : %s\n",file_name);
+          for(int i=0; i<nb_file; i++){
+            free(tab_file[i]);
+          }
+          sendFile(file_name);
+        }else{
+          puts("Sélection annulée");
+        }
       }else{
-        puts("Sélection annulée");
+        puts("Aucun fichier dans le dossier \"download_client\"");
       }
     }else{
-      puts("Aucun fichier dans le dossier \"download_client\"");
+      perror("Erreur open download_client");exit(1);
     }
-  }else{
-    perror("Erreur open download_client");exit(1);
+  }
+  else {
+    printf("Vous essayez déjà d'envoyer le nombre maximum de fichiers (%d)\n", MAX_FILES);
   }
 }
 
@@ -280,8 +316,7 @@ int main(int argc, char *argv[]) {
   //Création du client
   dS = socket(PF_INET, SOCK_STREAM, 0);
   if(dS == -1) {
-    perror("Erreur socket");
-    exit(1);
+    perror("Erreur socket");exit(1);
   }
   puts("Socket Créé");
   puts("Connexion en cours");
@@ -292,8 +327,7 @@ int main(int argc, char *argv[]) {
   aS.sin_port = htons(port);
   socklen_t lgA = sizeof(struct sockaddr_in);
   if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
-    perror("Erreur connect");
-    exit(1);
+    perror("Erreur connect");exit(1);
   }
 
   char m[SIZE_MESSAGE];
@@ -330,7 +364,11 @@ int main(int argc, char *argv[]) {
     if(strcmp(m, "OK") == 0) {
       puts("Login réussi");
 
-      thread_sendFile = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
+      thread_files = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
+      tabIndexThreadFile = (int*)malloc(MAX_FILES*sizeof(int));
+      for(int i=0; i<MAX_FILES; i++) {
+        tabIndexThreadFile[i] = 1;
+      }
 
       pid_t pid;
       // Fork pour que l'un gère l'envoie, l'autre la réception
@@ -338,7 +376,7 @@ int main(int argc, char *argv[]) {
       if (pid != 0) { // PERE
         signal(SIGINT, arret);
         pereSend(dS);
-        kill(pid, SIGINT); //Tue le fils
+        kill(pid, SIGINT);
         stopClient(dS);
         exit(EXIT_SUCCESS);
       }
@@ -354,7 +392,7 @@ int main(int argc, char *argv[]) {
     }
   }
   else {
-    puts("Le socket n'a pas pu se connecté au serveur");
+    puts("Le socket n'a pas pu se connecter au serveur");
   }
 
   exit(EXIT_SUCCESS);
