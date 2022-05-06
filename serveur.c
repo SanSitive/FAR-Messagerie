@@ -15,15 +15,17 @@
 #include "stack.h"
 
 #define MAX_CLIENTS 5
+#define MAX_FILES 3
 #define SIZE_MESSAGE 256
 
 int dS;
 int dSFile;
-pthread_mutex_t mutex_file; //Mutex pour l'accès à l'ensemble des fichiers du server
-pthread_mutex_t mutex; //Mutex pour la liste des Clients
+pthread_mutex_t mutex_file; //Mutex pour l'accès à l'ensemble des fichiers du serveur
+pthread_mutex_t mutex_clients; //Mutex pour la liste des Clients
 pthread_mutex_t mutex_help; //Mutex pour le fichier help.txt
 pthread_mutex_t mutex_thread; //Mutex pour la gestion des threads clients
 
+//---START CLIENTS---------------------------------------------------------//
 pthread_t *thread;              //Liste des threads
 struct clientStruct ** clients; //Liste des clients
 sem_t sem_place;                //Sémaphore indiquant le nombre de place restante
@@ -39,13 +41,33 @@ struct clientStruct {
   char * pseudo;
   int numero; //Index dans le tableau de clients
 };
+//---END CLIENTS-----------------------------------------------------------//
+
+
+//---START FILES-----------------------------------------------------------//
+pthread_t *thread_files;        //Liste des threads files
+struct fileStruct ** files;     //Liste des files
+sem_t sem_place_files;          //Sémaphore indiquant le nombre de place restante
+
+pthread_t thread_cleaner_files; //Thread cleaner des threads files zombie
+sem_t sem_thread_files;         //Sémaphore indiquant le nombre de thread file zombie à nettoyer
+Stack * zombieStackFiles;       //Pile d'entier contenant les index des threads files zombies
+
+// Idem pour l'upload d'un fichier
+struct fileStruct {
+  int dSF;
+  char * filename;
+  int size;
+  int numero;
+};
+//---END FILES-------------------------------------------------------------//
 
 /**
- * @brief Envoie un message au socket indiqué, et affiche l'erreur passé
+ * @brief Envoie un message au socket indiqué, et affiche l'erreur passé en paramètre s'il y a une erreur
  * 
  * @param dS 
  * @param msg 
- * @param erreur 
+ * @param erreur
  */
 void sendMessage(int dS, char msg[], char erreur[]) {
   if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
@@ -54,7 +76,7 @@ void sendMessage(int dS, char msg[], char erreur[]) {
 }
 
 /**
- * @brief Ferme le socket serveur
+ * @brief Ferme le serveur
  * 
  * @param dS 
  */
@@ -62,7 +84,7 @@ void stopServeur(int dS) {
   // Ferme le thread cleaner
   pthread_cancel(thread_cleaner);
   // Ferme les threads des clients
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   char msg[20] = "@shutdown";
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
@@ -73,17 +95,32 @@ void stopServeur(int dS) {
     }
   }
   free(clients);
+  for(int i=0; i<MAX_FILES; i++) {
+    if(files[i] != NULL) {
+      free(files[i]);
+    }
+  }
+  free(files);
 
   for (int i=0;i<MAX_CLIENTS;i++){
     pthread_cancel(thread[i]);
   }
   free(thread);
-  pthread_mutex_unlock(&mutex);
-  pthread_mutex_destroy(&mutex);
+  for (int i=0;i<MAX_FILES;i++){
+    pthread_cancel(thread_files[i]);
+  }
+  free(thread_files);
+  pthread_mutex_unlock(&mutex_clients);
+  pthread_mutex_destroy(&mutex_file);
+  pthread_mutex_destroy(&mutex_clients);
+  pthread_mutex_destroy(&mutex_help);
+  pthread_mutex_destroy(&mutex_thread);
 
-  //Clear la pile
+  //Clear les piles
   clearStack(zombieStack);
   free(zombieStack);
+  clearStack(zombieStackFiles);
+  free(zombieStackFiles);
 
 
   if(-1 == shutdown(dS, 2)) {
@@ -109,7 +146,7 @@ void arret() {
  */
 int isPseudoTaken(char pseudo[]) {
   int res = 0;
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
@@ -120,7 +157,7 @@ int isPseudoTaken(char pseudo[]) {
       }
     }
   }
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
   return res;
 }
 
@@ -146,10 +183,10 @@ int login(int dSC, struct clientStruct * p) {
   if(res == 1) {
     char retour[20] = "OK";
     sendMessage(dSC, retour, "Erreur send login");
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_clients);
     p->pseudo = (char*)malloc(sizeof(char)*strlen(msg)+1);
     strcpy(p->pseudo, msg);
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex_clients);
   }
   else {
     char retour[20] = "PseudoTaken";
@@ -166,7 +203,7 @@ int login(int dSC, struct clientStruct * p) {
  * @param msg 
  */
 void clientToAll(struct clientStruct* p, char msg[]) {
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   char msgPseudo[SIZE_MESSAGE];
   strcpy(msgPseudo, p->pseudo);
   strcat(msgPseudo, " : ");
@@ -178,7 +215,7 @@ void clientToAll(struct clientStruct* p, char msg[]) {
       }
     }
   }
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
 }
 
 /**
@@ -235,7 +272,7 @@ void help(int dSC) {
  */
 void listClients(int dSC) {
   char all[SIZE_MESSAGE] = "";
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
@@ -244,7 +281,7 @@ void listClients(int dSC) {
       }
     }
   }
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
   sendMessage(dSC, all, "Erreur send listClients");
 }
 
@@ -296,7 +333,7 @@ void dm(struct clientStruct* p, char msg[]) {
   strncpy(message, pseudoMessage + debutM, tailleM);
 
   //On cherche le pseudo dans la liste des pseudos existants 
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   int found = 0;
 
   //Si le client s'envoie un message à lui même
@@ -328,7 +365,7 @@ void dm(struct clientStruct* p, char msg[]) {
     sendMessage(p->dSC, erreur, "Erreur send erreur dm found == 2");
   }
 
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
 
   free(pseudoMessage);
   free(pseudo);
@@ -344,9 +381,9 @@ void dm(struct clientStruct* p, char msg[]) {
 void* client(void * parametres) {
   struct clientStruct* p = (struct clientStruct*) parametres;
 
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   int dSC = p->dSC;
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
 
   // Si l'utilisateur a réussi à se connecter
   if(login(dSC, p)) {
@@ -388,7 +425,7 @@ void* client(void * parametres) {
   }
 
   // On indique dans le tableau que le client n'est plus connecté
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
   pthread_mutex_lock(&mutex_thread);
   // On indique qu'il faut s'occuper du thread zombie
   if(sem_post(&sem_thread) == -1){
@@ -401,7 +438,7 @@ void* client(void * parametres) {
   p->dSC = -1;
   free(p->pseudo);
   free(p);
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
   // Nombre de place disponible incrémenté
   if(sem_post(&sem_place) == -1){
     perror("Erreur post sémaphore nb_place_dispo");
@@ -410,8 +447,13 @@ void* client(void * parametres) {
   pthread_exit(0);
 }
 
+void* file(void * parametres) {
+  struct fileStruct* f = (struct fileStruct *) parametres;
+  pthread_exit(0);
+}
+
 /**
- * @brief Trouve la première place libre dans le tableau de client, -1 si une place n'a pas été trouvée
+ * @brief Trouve la première place libre dans le tableau, -1 si une place n'a pas été trouvée
  * 
  * @param tab 
  * @param taille 
@@ -427,6 +469,29 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
   }
   return p;
 }
+
+void cleanerFiles() {
+  while(1) {
+    // On attends qu'un thread file se ferme
+    if(sem_wait(&sem_thread_files) == 1) {
+      perror("Erreur wait sémaphore file");exit(1);
+    }
+
+    int place = popStack(zombieStackFiles);
+    void *valrep;
+    int rep = pthread_join(thread_files[place], &valrep);
+    if (valrep == PTHREAD_CANCELED)
+      printf("The thread file was canceled - ");
+    switch (rep) {
+      case 0:
+        printf("Thread File %d a été joinned \n", place);
+        break;
+      default:
+        printf("Erreur durant le join du thread File : %d\n",place);
+    }
+  }
+}
+
 /**
  * @brief Fonction lié au thread qui clean en boucle les thread zombie s'il en existe
  * 
@@ -436,11 +501,10 @@ void* cleaner(){
   while(1){
     // On attends qu'un thread client se ferme
     if(sem_wait(&sem_thread) == 1){
-      perror("Erreur wait sémaphore");
-      exit(1);
+      perror("Erreur wait sémaphore client");exit(1);
     }
 
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_clients);
     pthread_mutex_lock(&mutex_thread);
     int place = popStack(zombieStack);
     void *valrep;
@@ -455,8 +519,24 @@ void* cleaner(){
       default:
         printf("Erreur durant le join du thread : %d\n",place);
     }
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex_clients);
   }
+}
+
+void ajoutFile(int dSF) {
+  struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
+  self->dSF = dSF;
+  self->filename = NULL; // Pas encore reçu les infos
+  self->size = 0;
+  //Faire un mutex
+  self->numero = getEmptyPosition(files, MAX_FILES);
+
+  files[self->numero] = self;
+  char connexion[20] = "OK";
+  sendMessage(dSF, connexion, "Erreur send connexion File");
+
+  pthread_create(&thread_files[self->numero], NULL, file, (void*)self);
+  puts("Demande File Ajouté");
 }
 
 /**
@@ -465,7 +545,7 @@ void* cleaner(){
  * @param dSC 
  */
 void ajoutClient(int dSC) {
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(&mutex_clients);
 
   struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
   self->dSC = dSC;
@@ -481,8 +561,108 @@ void ajoutClient(int dSC) {
   pthread_create(&thread[self->numero], NULL, client, (void*)self);
   pthread_mutex_unlock(&mutex_thread);
 
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(&mutex_clients);
   puts("Client Ajouté");
+}
+
+void acceptFiles() {
+  // On attend une nouvelle demande de téléchargement de fichiers
+  while(1) {
+    // Tant que le nombre max de files n'est pas atteint, on va attendre une connexion
+    if(sem_wait(&sem_place_files) == 1) {
+      perror("Erreur wait sémaphore files");exit(1);
+    }
+    struct sockaddr_in aF;
+    socklen_t lg = sizeof(struct sockaddr_in);
+    int dSF = accept(dSFile, (struct sockaddr*)&aF,&lg) ;
+    if(dSF == -1) {
+      perror("Erreur accept File");exit(1);
+    }
+
+    // On lance un thread pour la demande d'upload de fichier
+    ajoutFile(dSF);
+  }
+}
+
+void acceptClients() {
+
+}
+
+void initFiles(int port_file) {
+  //On initialise le sémaphore indiquant le nombre de place restante
+  if(sem_init(&sem_file, 0, MAX_FILES) == 1){
+    perror("Erreur init sémaphore");exit(1);
+  }
+
+  dSFile = socket(PF_INET, SOCK_STREAM, 0);
+  if(dSFile == -1) {
+    perror("Erreur socket file");exit(1);
+  }
+  puts("Sockets Créés");
+
+  struct sockaddr_in ad;
+  ad.sin_family = AF_INET;
+  ad.sin_addr.s_addr = INADDR_ANY;
+  ad.sin_port = htons(port_file);
+  if(-1 == bind(dSFile, (struct sockaddr*)&ad, sizeof(ad))) {
+    perror("Erreur bind file");exit(1);
+  }
+  puts("Socket File Nommé");
+
+  if(-1 == listen(dSFile, 7)) {
+    perror("Erreur listen file");exit(1);
+  }
+  puts("Mode écoute File");
+
+  // Liste qui contiendra les informations des clients
+  files = (struct fileStruct**)malloc(MAX_FILES*sizeof(struct fileStruct *));
+  for(int i=0; i<MAX_FILES; i++) {
+    files[i] = NULL;
+  }
+  thread_files = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
+
+  // Thread qui s'occupera des threads files zombies
+  zombieStackFiles = createStack();
+  pthread_create(&thread_cleaner_files, NULL, cleanerFiles, NULL);
+}
+
+void initClients(int port) {
+  //On initialise le sémaphore indiquant le nombre de place restante
+  if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
+    perror("Erreur init sémaphore");exit(1);
+  }
+
+  // Lancement du serveur
+  dS = socket(PF_INET, SOCK_STREAM, 0);
+  if(dS == -1) {
+    perror("Erreur socket client");exit(1);
+  }
+  puts("Socket Client Créé");
+
+  struct sockaddr_in ad;
+  ad.sin_family = AF_INET;
+  ad.sin_addr.s_addr = INADDR_ANY;
+  ad.sin_port = htons(port);
+  if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
+    perror("Erreur bind client");exit(1);
+  }
+  puts("Socket Client Nommé");
+
+  if(-1 == listen(dS, 7)) {
+    perror("Erreur listen client");exit(1);
+  }
+  puts("Mode écoute Client");
+
+  // Liste qui contiendra les informations des clients
+  clients = (struct clientStruct**)malloc(MAX_CLIENTS*sizeof(struct clientStruct *));
+  for(int i=0; i<MAX_CLIENTS; i++) {
+    clients[i] = NULL;
+  }
+  thread = (pthread_t*)malloc(MAX_CLIENTS*sizeof(pthread_t));
+
+  // Thread qui s'occupera des threads clients zombies
+  zombieStack = createStack();
+  pthread_create(&thread_cleaner, NULL, cleaner, NULL);
 }
 
 /**
@@ -500,59 +680,11 @@ int main(int argc, char *argv[]) {
 
   const int port = atoi(argv[1]);
   const int port_file = port + 100;
+  initFiles(port_file);
+  initClients(port);
 
-  //On initialise le sémaphore indiquant le nombre de place restante
-  if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
-    perror("Erreur init sémaphore");exit(1);
-  }
-
-  // Lancement du serveur
-  dS = socket(PF_INET, SOCK_STREAM, 0);
-  if(dS == -1) {
-    perror("Erreur socket client");exit(1);
-  }
-  dSFile = socket(PF_INET, SOCK_STREAM, 0);
-  if(dSFile == -1) {
-    perror("Erreur socket file");exit(1);
-  }
-  puts("Sockets Créés");
-
-  struct sockaddr_in ad;
-  ad.sin_family = AF_INET;
-  ad.sin_addr.s_addr = INADDR_ANY;
-  ad.sin_port = htons(port);
-  if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
-    perror("Erreur bind client");exit(1);
-  }
-  struct sockaddr_in ad2;
-  ad2.sin_family = AF_INET;
-  ad2.sin_addr.s_addr = INADDR_ANY;
-  ad2.sin_port = htons(port_file);
-  if(-1 == bind(dSFile, (struct sockaddr*)&ad2, sizeof(ad2))) {
-    perror("Erreur bind file");exit(1);
-  }
-  puts("Sockets Nommés");
-
-  if(-1 == listen(dS, 7)) {
-    perror("Erreur listen client");exit(1);
-  }
-  if(-1 == listen(dSFile, 7)) {
-    perror("Erreur listen file");exit(1);
-  }
-  puts("Mode écoute");
-
-  // Liste qui contiendra les informations des clients
-  clients = (struct clientStruct**)malloc(MAX_CLIENTS*sizeof(struct clientStruct *));
-  for(int i=0; i<MAX_CLIENTS; i++) {
-    clients[i] = NULL;
-  }
-  thread = (pthread_t*)malloc(MAX_CLIENTS*sizeof(pthread_t));
-
+  // CTRL-C
   signal(SIGINT, arret);
-
-  // Thread qui s'occupera des threads clients zombies
-  zombieStack = createStack();
-  pthread_create(&thread_cleaner, NULL, cleaner, NULL);
 
   // On attend qu'un nouveau client veuille se connecter
   while(1) {

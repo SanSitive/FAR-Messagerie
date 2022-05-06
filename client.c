@@ -13,8 +13,38 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+#include "stack.h"
+
 #define SIZE_MESSAGE 256
+#define MAX_FILES 3 // Nombre de fichiers qu'on peut envoyer simultanément
 int dS;
+
+pthread_mutex_t mutex_file;
+
+pthread_t * thread_sendFile;
+sem_t sem_place_files;          //Sémaphore indiquant le nombre de demande de fichier restant
+
+pthread_t thread_cleaner_files; //Thread cleaner des threads file zombie
+sem_t sem_thread_files;         //Sémaphore indiquant le nombre de thread file zombie à nettoyer
+Stack * zombieStackFiles;       //Pile d'entier contenant les index des threads files zombies
+
+struct fileStruct {
+  char * filename;
+  int numero;
+};
+
+/**
+ * @brief Envoie un message au socket indiqué, et affiche l'erreur passé en paramètre s'il y a une erreur
+ * 
+ * @param dS 
+ * @param msg 
+ * @param erreur 
+ */
+void sendMessage(int dS, char msg[], char erreur[]) {
+  if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
+    perror(erreur);exit(1);
+  }
+}
 
 /**
  * @brief Ferme le socket client
@@ -34,10 +64,14 @@ void stopClient(int dS) {
  */
 void arret() {
   wait(NULL); // Tue le fils
-  char m[SIZE_MESSAGE] = "@disconnect";
-  if(-1 == send(dS, m, strlen(m)+1, 0)) { // Prévenir le serveur
-    perror("Erreur send");exit(1);
+
+  for (int i=0;i<MAX_FILES;i++){
+    pthread_cancel(thread_sendFile[i]);
   }
+  free(thread_sendFile);
+  pthread_cancel(thread_cleaner); // Attends la fin du processus d'envoie de fichier
+
+  sendMessage(dS, "@disconnect", "Erreur send disconnect"); // Prévenir le serveur
   stopClient(dS); // Fermer la socket
   exit(EXIT_SUCCESS);
 }
@@ -56,7 +90,24 @@ int verifPseudo(char pseudo[]) {
   return res;
 }
 
-void sendFile(char fichier[]) {
+/**
+ * @brief Thread nettoyant les threads zombie
+ * 
+ * @return void* 
+ */
+void * cleaner() {
+  pthread_exit(0);
+}
+
+/**
+ * @brief Processus gérant l'envoie d'un fichier du dossier "download_client"au serveur
+ * 
+ * @param filename
+ */
+void* sendFileProcess(void * parametres) {
+  struct fileStruct * f = (struct fileStruct *) parametres;
+  pthread_mutex_lock(&mutex_file);
+
   struct stat st;
   stat(fichier, &st);
   int size = st.st_size;
@@ -65,15 +116,52 @@ void sendFile(char fichier[]) {
   printf("%s", sizeString);
 
   FILE * fp = fopen(fichier, "r");
+  //@sf nom_fichier taille
   char msg[SIZE_MESSAGE];
   strcpy(msg, "@sf ");
   strcat(msg, fichier);
   strcat(msg, " ");
   strcat(msg, sizeString);
-  if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
-    perror("Erreur send");exit(1);
-  }
+  //sendMessage(, msg, "Erreur send @sf");
   fclose(fp);
+
+  pthread_mutex_unlock(&mutex_file);
+  free(f->filename);
+  free(f);
+  pthread_exit(0);
+}
+
+/**
+ * @brief Trouve la première place libre dans le tableau, -1 si une place n'a pas été trouvée
+ * 
+ * @param tab 
+ * @param taille 
+ * @return int 
+ */
+int getEmptyPosition(struct clientStruct * tab[], int taille) {
+  int p = -1;
+  for(int i=0; i<taille; i++) {
+    if(tab[i] == NULL) {
+      p = i;
+      break;
+    }
+  }
+  return p;
+}
+
+/**
+ * @brief Envoie un fichier du dossier "download_client" au serveur
+ * 
+ * @param fichier 
+ */
+void sendFile(char fichier[]) {
+  char * filename = (char*)malloc(strlen(fichier)+1);
+
+  struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
+  self->filename = filename;
+  self->numero = getEmptyPosition(thread_sendFile, MAX_FILES);
+
+  pthread_create(&thread_files[self->numero], NULL, sendFileProcess, (void*)self);
 }
 
 void selectFile(){
@@ -120,10 +208,10 @@ void selectFile(){
         puts("Sélection annulée");
       }
     }else{
-      puts("Aucun fichier dans le dossier");
+      puts("Aucun fichier dans le dossier \"download_client\"");
     }
   }else{
-    perror("Erreur open directory");exit(1);
+    perror("Erreur open download_client");exit(1);
   }
 }
 
@@ -241,6 +329,9 @@ int main(int argc, char *argv[]) {
     // Si pseudo accepté
     if(strcmp(m, "OK") == 0) {
       puts("Login réussi");
+
+      thread_sendFile = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
+
       pid_t pid;
       // Fork pour que l'un gère l'envoie, l'autre la réception
       pid = fork();
