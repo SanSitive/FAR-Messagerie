@@ -1,6 +1,7 @@
 Liste des commandes :
 
-@h | help : donne la liste des commandes
-@a | all : donne la liste des clients
-@d | disconnect : pour que le client se déconnecte
-@mp | @dm (exemple @mp User Message) (envoi d’un message à un utilisateur en particulier)
+@h | help : liste des commandes
+@a | all : liste des clients
+@d | disconnect : déconnexion
+@mp | @dm (exemple @mp User Message) : message privé
+@sendfile : envoie un fichier au serveur

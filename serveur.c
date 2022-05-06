@@ -76,6 +76,14 @@ void sendMessage(int dS, char msg[], char erreur[]) {
   }
 }
 
+int recvMessage(int dS, char msg[], char erreur[]) {
+  int r = 0;
+  if((r = recv(dS, msg, sizeof(char)*SIZE_MESSAGE, 0)) == -1) {
+    perror(erreur);exit(1);
+  }
+  return r;
+}
+
 /**
  * @brief Ferme le serveur
  * 
@@ -451,7 +459,44 @@ void* client(void * parametres) {
 
 void* file(void * parametres) {
   struct fileStruct* f = (struct fileStruct *) parametres;
+
+  char msg[SIZE_MESSAGE];
+  recvMessage(f->dSF, msg, "Erreur recv filename");
+  //Vérifier que le fichier existe pas déjà
+  sendMessage(f->dSF, "OK", "Erreur confirm filename");
+  if(1) {
+    int size = 0;
+    recvMessage(f->dSF, msg, "Erreur recv size");
+    size = atoi(msg);
+    sendMessage(f->dSF, "OK", "Erreur confirm size");
+
+    char buffer[size];
+    strcpy(buffer, "");
+
+    do {
+      recvMessage(f->dSF, msg, "Erreur recv data");
+      if(strcmp(msg, "END") != 0) {
+        strcat(buffer, msg);
+        sendMessage(f->dSF, "OK", "Erreur file confirm data");
+      }
+    } while(strcmp(msg, "END") != 0);
+
+    // Enregistrer le fichier :
+    char path[SIZE_MESSAGE] = "./download_server/";
+    strcat(path, f->filename);
+    FILE *fp = fopen(path, "wb"); // must use binary mode
+    fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
+    fclose(fp);
+  }
+
+  pushStack(zombieStackFiles, f->numero);
+  free(f->filename);
   free(f);
+  // Nombre de place disponible incrémenté
+  if(sem_post(&sem_place) == -1){
+    perror("Erreur post sémaphore nb_place_dispo");
+    exit(1);
+  }
   pthread_exit(0);
 }
 

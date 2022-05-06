@@ -18,6 +18,9 @@
 #define SIZE_MESSAGE 256
 #define MAX_FILES 3 // Nombre de fichiers qu'on peut envoyer simultanément
 int dS;
+char * ip;
+int port;
+int port_file;
 
 pthread_mutex_t mutex_file;
 pthread_mutex_t mutex_thread_file;
@@ -48,6 +51,13 @@ void sendMessage(int dS, char msg[], char erreur[]) {
   }
 }
 
+int recvMessage(int dS, char msg[], char erreur[]) {
+  int r = 0;
+  if((r = recv(dS, msg, sizeof(char)*SIZE_MESSAGE, 0)) == -1) {
+    perror(erreur);exit(1);
+  }
+  return r;
+}
 /**
  * @brief Ferme le socket client
  * 
@@ -101,7 +111,7 @@ int verifPseudo(char pseudo[]) {
  * 
  * @return void* 
  */
-void * cleaner() {
+void* cleaner() {
   while(1) {
     // On attends qu'un thread file se ferme
     if(sem_wait(&sem_thread_files) == 1){
@@ -140,15 +150,59 @@ void* sendFileProcess(void * parametres) {
   char sizeString[10];
   sprintf(sizeString, "%d", size);
 
-  FILE * fp = fopen(f->filename, "r");
-  //@sf nom_fichier taille
-  char msg[SIZE_MESSAGE];
-  strcpy(msg, "@sf ");
-  strcat(msg, f->filename);
-  strcat(msg, " ");
-  strcat(msg, sizeString);
-  //sendMessage(, msg, "Erreur send @sf");
-  fclose(fp);
+  //Création du socket
+  int dSF = socket(PF_INET, SOCK_STREAM, 0);
+  if(dSF == -1) {
+    perror("Erreur socket dSF");exit(1);
+  }
+
+  struct sockaddr_in aS;
+  aS.sin_family = AF_INET;
+  inet_pton(AF_INET, ip, &(aS.sin_addr));
+  aS.sin_port = htons(port_file);
+  socklen_t lgA = sizeof(struct sockaddr_in);
+  if(-1 == connect(dSF, (struct sockaddr *) &aS, lgA)) {
+    perror("Erreur connect dSF");exit(1);
+  }
+
+  char m[SIZE_MESSAGE];
+  //On attends la confirmation de connexion au serveur
+  recvMessage(dSF, m, "Erreur file connexion");
+
+  if(strcmp(m, "OK") == 0) {
+    // On envoie le nom du fichier
+    sendMessage(dSF, f->filename, "Erreur send filename");
+    // On attends que le serveur nous dis si un fichier n'existe pas déjà sous ce nom
+    recvMessage(dSF, m, "Erreur file filename");
+
+    if(strcmp(m, "OK") == 0) {
+      // On envoie alors la taille, puis les données
+      sendMessage(dSF, sizeString, "Erreur send size");
+      recvMessage(dSF, m, "Erreur recv file OK");
+
+      if(strcmp(m, "OK") == 0) {
+        char path[SIZE_MESSAGE] = "./download_client/";
+        strcat(path, f->filename);
+        FILE * fp = fopen(path, "rb");
+        int dataSent = 0;
+        while(dataSent < size && strcmp(m, "OK") == 0) {
+          dataSent += fread(m, sizeof(char), SIZE_MESSAGE - 1, fp);
+          strcat(m, "\0");
+          sendMessage(dSF, m, "Erreur send data");
+          recvMessage(dSF, m, "Erreur recv file OK");
+        }
+        sendMessage(dSF, "END", "Erreur send file end");
+        /*else { // error handling
+          if (feof(fp))
+              printf("Error reading test.bin: unexpected end of file\n");
+          else if (ferror(fp)) {
+              perror("Error reading test.bin");
+          }
+        }*/
+         fclose(fp);
+      }
+    }
+  }
 
   pthread_mutex_unlock(&mutex_file);
 
@@ -157,6 +211,7 @@ void* sendFileProcess(void * parametres) {
   free(f->filename);
   free(f);
   pthread_mutex_unlock(&mutex_thread_file);
+  close(dSF);
   pthread_exit(0);
 }
 
@@ -290,11 +345,8 @@ void filsRecv(int dS) {
   char reception[SIZE_MESSAGE];
   int r;
   do {
-    r = recv(dS, reception, sizeof(char)*SIZE_MESSAGE, 0);
-    if(-1 == r) {
-      perror("Erreur recv");exit(1);
-    }
-    else if(strcmp(reception, "@shutdown") == 0) {
+    r = recvMessage(dS, reception, "Erreur recv");
+    if(strcmp(reception, "@shutdown") == 0) {
       break;
     }
     // Non déconnecté
@@ -311,7 +363,9 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  const int port = atoi(argv[2]);
+  ip = argv[1];
+  port = atoi(argv[2]);
+  port_file = port + 100;
 
   //Création du client
   dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -323,7 +377,7 @@ int main(int argc, char *argv[]) {
 
   struct sockaddr_in aS;
   aS.sin_family = AF_INET;
-  inet_pton(AF_INET, argv[1], &(aS.sin_addr));
+  inet_pton(AF_INET, ip, &(aS.sin_addr));
   aS.sin_port = htons(port);
   socklen_t lgA = sizeof(struct sockaddr_in);
   if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
@@ -353,12 +407,8 @@ int main(int argc, char *argv[]) {
     }
     while(verif == 0);
     
-    if(-1 == send(dS, m, strlen(m)+1, 0)) {
-      perror("Erreur send Pseudo");exit(1);
-    }
-    if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
-      perror("Erreur recv Pseudo");exit(1);
-    }
+    sendMessage(dS, m, "Erreur send Pseudo");
+    recvMessage(dS, m, "Erreur recv Pseudo");
 
     // Si pseudo accepté
     if(strcmp(m, "OK") == 0) {
