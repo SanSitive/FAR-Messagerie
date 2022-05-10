@@ -45,10 +45,12 @@ struct fileStruct {
  * @param msg 
  * @param erreur 
  */
-void sendMessage(int dS, char msg[], char erreur[]) {
-  if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
+int sendMessage(int dS, char msg[], char erreur[]) {
+  int r = 0;
+  if((r = send(dS, msg, strlen(msg)+1, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
+  return r;
 }
 
 int recvMessage(int dS, char msg[], char erreur[]) {
@@ -145,7 +147,9 @@ void* sendFileProcess(void * parametres) {
   pthread_mutex_lock(&mutex_file);
 
   struct stat st;
-  stat(f->filename, &st);
+  char path[SIZE_MESSAGE] = "./download_client/";
+  strcat(path, f->filename);
+  stat(path, &st);
   int size = st.st_size;
   char sizeString[10];
   sprintf(sizeString, "%d", size);
@@ -181,14 +185,18 @@ void* sendFileProcess(void * parametres) {
       recvMessage(dSF, m, "Erreur recv file OK");
 
       if(strcmp(m, "OK") == 0) {
-        char path[SIZE_MESSAGE] = "./download_client/";
-        strcat(path, f->filename);
         FILE * fp = fopen(path, "rb");
         int dataSent = 0;
+        
         while(dataSent < size && strcmp(m, "OK") == 0) {
-          dataSent += fread(m, sizeof(char), SIZE_MESSAGE - 1, fp);
-          strcat(m, "\0");
-          sendMessage(dSF, m, "Erreur send data");
+          int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+          char data[sizeToGet];
+          dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+          int sent = send(dSF, data, sizeof(char)*sizeToGet, 0);
+          if(sent == -1 ) {
+            perror("Erreur send data file");exit(1);
+          }
           recvMessage(dSF, m, "Erreur recv file OK");
         }
         sendMessage(dSF, "END", "Erreur send file end");

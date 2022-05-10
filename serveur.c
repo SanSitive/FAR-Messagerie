@@ -462,6 +462,8 @@ void* file(void * parametres) {
 
   char msg[SIZE_MESSAGE];
   recvMessage(f->dSF, msg, "Erreur recv filename");
+  char path[SIZE_MESSAGE] = "./download_server/";
+  strcat(path, msg);
   //Vérifier que le fichier existe pas déjà
   sendMessage(f->dSF, "OK", "Erreur confirm filename");
   if(1) {
@@ -473,20 +475,30 @@ void* file(void * parametres) {
     char buffer[size];
     strcpy(buffer, "");
 
+    int dataTotal = 0;
+    int sizeToGet = size;
     do {
-      recvMessage(f->dSF, msg, "Erreur recv data");
-      if(strcmp(msg, "END") != 0) {
-        strcat(buffer, msg);
+      sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
+      if(sizeToGet > 0) {
+        char data[sizeToGet+1];
+        int dataGet = recv(f->dSF, data, sizeof(char)*sizeToGet, 0);
+        if(dataGet == -1) {
+          perror("Erreur recv file data");exit(1);
+        }
+        data[sizeToGet] = '\0';
+        dataTotal += dataGet;
+        strcat(buffer, data);
         sendMessage(f->dSF, "OK", "Erreur file confirm data");
       }
-    } while(strcmp(msg, "END") != 0);
+    } while(sizeToGet > 0);
 
-    // Enregistrer le fichier :
-    char path[SIZE_MESSAGE] = "./download_server/";
-    strcat(path, f->filename);
-    FILE *fp = fopen(path, "wb"); // must use binary mode
-    fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
-    fclose(fp);
+    recvMessage(f->dSF, msg, "Erreur recv file END");
+    if(strcmp(msg, "END") == 0) {
+      // Enregistrer le fichier :
+      FILE *fp = fopen(path, "wb"); // must use binary mode
+      fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
+      fclose(fp);
+    }
   }
 
   pushStack(zombieStackFiles, f->numero);
