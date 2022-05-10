@@ -76,6 +76,14 @@ void sendMessage(int dS, char msg[], char erreur[]) {
   }
 }
 
+/**
+ * @brief Essaye de récupérer un fichier, affiche une erreur s'il n'y arrive pas 
+ * 
+ * @param dS 
+ * @param msg 
+ * @param erreur 
+ * @return int 
+ */
 int recvMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
   if((r = recv(dS, msg, sizeof(char)*SIZE_MESSAGE, 0)) == -1) {
@@ -139,6 +147,7 @@ void stopServeur(int dS) {
   }
   puts("Arrêt serveur");
 }
+
 /**
  * @brief Fonction déclenchée lors d'un contrôle C
  * 
@@ -258,7 +267,7 @@ void transformCommand(char m[]) {
 }
 
 /**
- * @brief Envoie de la liste des commandes au client en paramètre (lu du fichier help.txt)
+ * @brief Envoie la liste des commandes au client en paramètre (lecture du fichier help.txt)
  * 
  * @param dSC 
  */
@@ -383,6 +392,25 @@ void dm(struct clientStruct* p, char msg[]) {
 }
 
 /**
+ * @brief Liste les fichiers présents sur le serveur
+ * 
+ * @param dSC 
+ */
+void filesServeur(int dSC){
+  
+}
+
+/**
+ * @brief Récupère le fichier du serveur demandé et le transfert au client
+ * 
+ * @param dSC 
+ * @param msg 
+ */
+void sf(int dSC, char msg[]){
+
+}
+
+/**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
  * @param parametres 
@@ -410,21 +438,32 @@ void* client(void * parametres) {
       if(msg[0] != '@') {
         clientToAll(p, msg);
       }
-      // Commande
+      // Commandes
       else {
         transformCommand(msg);
-
+        //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
         }
+        //Liste des utilisateurs
         else if(strcmp(msg, "@all") == 0 || strcmp(msg, "@a") == 0) {
           listClients(dSC);
         }
+        //Déconnexion
         else if(strcmp(msg, "@d") == 0 || strcmp(msg, "@disconnect") == 0) {
           continu = 0;
         }
+        //Message privé
         else if(((msg[1] == 'm' && msg[2] == 'p') || (msg[1] == 'd' && msg[2] == 'm')) && isblank(msg[3])>0){
           dm(p, msg);
+        }
+        //Liste des fichiers disponibles dans le serveur
+        else if(strcmp(msg, "@serveurfiles") == 0){
+          filesServeur(dSC);
+        }
+        //Récupération d'un fichier du serveur chez le client
+        else if (msg[1] == 's' && msg[2] == 'f' && isblank(msg[3]) > 0){
+          sf(dSC, msg);
         }
         else {
           char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
