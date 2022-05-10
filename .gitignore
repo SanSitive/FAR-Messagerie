@@ -2,6 +2,7 @@ client
 serveur
 download_client/
 download_server/
+stack
 
 # Prerequisites
 *.d

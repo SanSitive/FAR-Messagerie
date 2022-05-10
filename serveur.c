@@ -397,7 +397,42 @@ void dm(struct clientStruct* p, char msg[]) {
  * @param dSC 
  */
 void filesServeur(int dSC){
-  
+  int nb_file = 0; //variable pour compter le nombre de fichiers présents dans le dossier
+  DIR *dir;
+  struct dirent *ent;
+  //On essaie d'ouvrir le dossier
+  if ((dir = opendir("./download_server")) != NULL) {
+    //On compte le nombre de fichiers présents dans le dossier
+    while ((ent = readdir(dir)) != NULL) {
+      if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
+        nb_file++;
+      }
+    }
+    //Si le dossier n'est pas vide
+    if(nb_file > 0){
+      char *tab_file[nb_file]; //Variable qui va contenir le nom des fichiers
+      nb_file = 0;
+      char msg[SIZE_MESSAGE] = "Listes des fichiers présents dans le serveur : \n"; //Variable à destination du client qui va stocker les noms des fichiers 
+      rewinddir(dir); //réinitialise le parcours du dossier
+      while ((ent = readdir(dir)) != NULL) {
+        //Pour chaque fichier du dossier, on récupère son nom et on le concatène dans msg
+        if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
+          tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
+          strcpy(tab_file[nb_file],ent->d_name);
+          strcat(msg, tab_file[nb_file]);
+          nb_file++;
+        }
+      }
+      //Quand on a récupéré tous les fichiers, on envoie la liste au client
+      sendMessage(dSC, msg, "Erreur envoi liste fichiers serveur");
+      closedir(dir);
+    }else{
+      puts("Aucun fichier dans le dossier \"download_server\"");
+    }
+  }else{
+    perror("Erreur open download_server");
+    exit(1);
+  }
 }
 
 /**
