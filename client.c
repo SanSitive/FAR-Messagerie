@@ -181,7 +181,39 @@ void* receiveFileProcess(void * parametres){
         sendMessage(dSF, "READY","Erreur send READY");
         //On attend la taille du fichier demandé
         recvMessage(dSF, m, "Erreur receive size");
+        printf("size : %s \n",m);
+        sendMessage(dSF,"OK","Erreur confirm receive size");
+        //On récupère la taille du fichier
+        int size = atoi(m);
+        char buffer[size];
+        strcpy(buffer,"");
+        int dataTotal = 0;
+        int sizeToGet = size;
+        do {
+          sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
+          if(sizeToGet > 0) {
+            char data[sizeToGet+1];
+            int dataGet = recv(dSF, data, sizeof(char)*sizeToGet, 0);
+            if(dataGet == -1) {
+              perror("Erreur recv file data");exit(1);
+            }
+            data[sizeToGet] = '\0';
+            dataTotal += dataGet;
+            strcat(buffer, data);
+            sendMessage(dSF, "OK", "Erreur file confirm data");
+          }
+        } while(sizeToGet > 0);
 
+        recvMessage(dSF, m, "Erreur recv file END");
+        if(strcmp(m, "END") == 0) {
+          char path[SIZE_MESSAGE] = "./download_client/";
+          strcat(path, f->filename);
+          printf("path : %s\n",path);
+          // Enregistrer le fichier :
+          FILE *fp = fopen(path, "wb"); // must use binary mode
+          fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
+          fclose(fp);
+        }
 
       }else if(strcmp(m, "FileNotExists") == 0){
         printf("@rcvf : Le fichier %s n'existe pas dans le serveur.\n", f->filename);
@@ -332,6 +364,8 @@ void receiveFile(char m[]){
   int taille = j - i + 1;
   char *nomFichier = (char*)malloc(taille);
   strncpy(nomFichier, m + i, taille);
+  //Enlever \n à la fin du nom du fichier
+  nomFichier[strcspn(nomFichier, "\n")] = 0;
 
   //Création du thread
   struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));

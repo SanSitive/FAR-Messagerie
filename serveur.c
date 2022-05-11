@@ -11,6 +11,7 @@
 #include <semaphore.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "stack.h"
 
@@ -523,7 +524,7 @@ void* client(void * parametres) {
  * 
  * @param f 
  */
-void fileSend(struct fileStruct * f){
+void fileToServer(struct fileStruct * f){
   char msg[SIZE_MESSAGE];
   
   recvMessage(f->dSF, msg, "Erreur recv filename");
@@ -572,8 +573,62 @@ void fileSend(struct fileStruct * f){
  * 
  * @param f 
  */
-void fileReceive(struct fileStruct * f){
+void fileToClient(struct fileStruct * f){
+  char m[SIZE_MESSAGE];
+  //On attends le nom du fichier
+  recvMessage(f->dSF, m, "Erreur file connexion");
 
+  pthread_mutex_lock(&mutex_file);
+  
+  struct stat st;
+  char path[SIZE_MESSAGE] = "./download_server/";
+  strcat(path, m);
+  stat(path, &st);
+  int size = st.st_size;
+  char sizeString[10];
+  sprintf(sizeString, "%d", size);
+
+  pthread_mutex_unlock(&mutex_file);
+
+  sendMessage(f->dSF,"OK", "Erreur confirm file name to client");
+  
+  //On attends le READY
+  recvMessage(f->dSF, m, "Erreur receive READY");
+
+  if(strcmp(m, "READY") == 0) {
+    //On envoie la taille du fichier demandé
+    sendMessage(f->dSF, sizeString, "Erreur send size");
+    //On attend la confirmation du serveur
+    recvMessage(f->dSF, m, "Erreur file protocol");
+
+    if(strcmp(m, "OK") == 0){
+      pthread_mutex_lock(&mutex_file);
+      FILE * fp = fopen(path, "rb");
+      int dataSent = 0;
+      
+      while(dataSent < size && strcmp(m, "OK") == 0) {
+        int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+        char data[sizeToGet];
+        dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+        int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
+        if(sent == -1 ) {
+          perror("Erreur send data file");exit(1);
+        }
+        recvMessage(f->dSF, m, "Erreur recv file OK");
+      }
+      sendMessage(f->dSF, "END", "Erreur send file end");
+      /*else { // error handling
+        if (feof(fp))
+            printf("Error reading test.bin: unexpected end of file\n");
+        else if (ferror(fp)) {
+            perror("Error reading test.bin");
+        }
+      }*/
+      fclose(fp);
+      pthread_mutex_unlock(&mutex_file);
+    }  
+  }
 }
 
 void* file(void * parametres) {
@@ -586,10 +641,10 @@ void* file(void * parametres) {
   sendMessage(f->dSF, "OK", "Erreur send ok for protocol");
 
   if(strcmp(msg, "SEND") == 0){
-    fileSend(f);
+    fileToServer(f);
   }
   else if(strcmp(msg,"RCV")==0){
-    fileReceive(f);
+    fileToClient(f);
   }
 
   pushStack(zombieStackFiles, f->numero);
