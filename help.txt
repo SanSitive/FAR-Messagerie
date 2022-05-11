@@ -5,5 +5,3 @@ Liste des commandes :
 @d | disconnect : déconnexion
 @mp | @dm (exemple @mp User Message) : message privé
 @sendfile : envoie un fichier au serveur
-@serveurfiles : liste les fichiers disponibles sur le serveur
-@sf nomfichier : récupération du fichier demandé
