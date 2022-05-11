@@ -437,16 +437,6 @@ void filesServeur(int dSC){
 }
 
 /**
- * @brief Récupère le fichier du serveur demandé et le transfert au client
- * 
- * @param dSC 
- * @param msg 
- */
-void sf(int dSC, char msg[]){
-
-}
-
-/**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
  * @param parametres 
@@ -497,10 +487,6 @@ void* client(void * parametres) {
         else if(strcmp(msg, "@serveurfiles") == 0){
           filesServeur(dSC);
         }
-        //Récupération d'un fichier du serveur chez le client
-        else if (msg[1] == 's' && msg[2] == 'f' && isblank(msg[3]) > 0){
-          sf(dSC, msg);
-        }
         else {
           char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
           sendMessage(dSC, erreur, "Erreur bad command");
@@ -532,10 +518,14 @@ void* client(void * parametres) {
   pthread_exit(0);
 }
 
-void* file(void * parametres) {
-  struct fileStruct* f = (struct fileStruct *) parametres;
-
+/**
+ * @brief Fonction qui gère le protocole de copie d'un fichier client dans le serveur
+ * 
+ * @param f 
+ */
+void fileSend(struct fileStruct * f){
   char msg[SIZE_MESSAGE];
+  
   recvMessage(f->dSF, msg, "Erreur recv filename");
   char path[SIZE_MESSAGE] = "./download_server/";
   strcat(path, msg);
@@ -574,6 +564,32 @@ void* file(void * parametres) {
       fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
       fclose(fp);
     }
+  }
+}
+
+/**
+ * @brief Fonction qui gère le protocole d'envoie d'un fichier serveur au client
+ * 
+ * @param f 
+ */
+void fileReceive(struct fileStruct * f){
+
+}
+
+void* file(void * parametres) {
+  struct fileStruct* f = (struct fileStruct *) parametres;
+
+  char msg[SIZE_MESSAGE];
+  //On attend de savoir quelle action on doit faire : RCV ou SEND
+  recvMessage(f->dSF, msg, "Erreur recv protocol");
+  //On envoie qu'on a bien reçu l'action
+  sendMessage(f->dSF, "OK", "Erreur send ok for protocol");
+
+  if(strcmp(msg, "SEND") == 0){
+    fileSend(f);
+  }
+  else if(strcmp(msg,"RCV")==0){
+    fileReceive(f);
   }
 
   pushStack(zombieStackFiles, f->numero);
