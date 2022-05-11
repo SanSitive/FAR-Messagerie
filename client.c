@@ -335,7 +335,7 @@ void pereSend(int dS) {
           perror("Erreur send");exit(1);
         }
         // Non déconnecté
-        else if(s != 0) {
+        else if(s != 0 && m[0] != '@') {
           puts("Message Envoyé");
         }
       }
