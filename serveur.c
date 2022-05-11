@@ -420,6 +420,7 @@ void filesServeur(int dSC){
           tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
           strcpy(tab_file[nb_file],ent->d_name);
           strcat(msg, tab_file[nb_file]);
+          strcat(msg, "\n");
           nb_file++;
         }
       }
