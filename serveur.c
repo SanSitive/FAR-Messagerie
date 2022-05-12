@@ -11,6 +11,7 @@
 #include <semaphore.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "stack.h"
 
@@ -275,12 +276,34 @@ void help(int dSC) {
   pthread_mutex_lock(&mutex_help);
   FILE *fileSource;
   fileSource = fopen("help.txt", "r");
+
   char ch;
-  char help[SIZE_MESSAGE] = "";
-  while( ( ch = fgetc(fileSource) ) != EOF )
+  char *help = malloc(SIZE_MESSAGE*sizeof(char));
+  int count = 0;
+  while( ( ch = fgetc(fileSource) ) != EOF ){
     strncat(help,&ch,1);
+    count++;
+    if(ch == '\n' || count == 255){
+      
+      //On remplace le dernier caractère par un \0
+      if(ch == '\n'){
+        help[count - 1] = '\0';
+      }else{
+        help[count] = '\0';
+      }
+      
+      sendMessage(dSC, help, "Erreur send help");
+      sleep(0.001); //(TEMPORAIRE) Sinon le String help a été réinitialis2 avant même d'être envoyé
+      strcpy(help,"");
+      //memset(help,0,sizeof(char)); //Réinitialise le string buffer
+      count = 0;
+    }
+  }
+  if(count > 0){
+    sendMessage(dSC, help, "Erreur send help");
+  }
+  free(help);
   fclose(fileSource);
-  sendMessage(dSC, help, "Erreur send help");
   pthread_mutex_unlock(&mutex_help);
 }
 
@@ -348,8 +371,10 @@ void dm(struct clientStruct* p, char msg[]) {
   pseudo[tailleP] = '\0';
   //On créer une place pour le message
   int tailleM = strlen(pseudoMessage) - debutM + 1;
-  char *message = (char*)malloc(tailleM);
+  char *message = (char*)malloc(tailleM + 1);
   strncpy(message, pseudoMessage + debutM, tailleM);
+  message[tailleM] = '\0';
+  printf(" message : %s\n",message);
 
   //On cherche le pseudo dans la liste des pseudos existants 
   pthread_mutex_lock(&mutex_clients);
@@ -367,6 +392,7 @@ void dm(struct clientStruct* p, char msg[]) {
             strcpy(msgComplet, p->pseudo);
             strcat(msgComplet, " (mp) : ");
             strcat(msgComplet, message);
+            printf("msgComplet : %s\n",msgComplet);
             sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
             found = 1;
             break;
