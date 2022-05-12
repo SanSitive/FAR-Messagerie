@@ -463,16 +463,6 @@ void filesServeur(int dSC){
 }
 
 /**
- * @brief Récupère le fichier du serveur demandé et le transfert au client
- * 
- * @param dSC 
- * @param msg 
- */
-void sf(int dSC, char msg[]){
-
-}
-
-/**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
  * @param parametres 
@@ -523,10 +513,6 @@ void* client(void * parametres) {
         else if(strcmp(msg, "@serveurfiles") == 0){
           filesServeur(dSC);
         }
-        //Récupération d'un fichier du serveur chez le client
-        else if (msg[1] == 's' && msg[2] == 'f' && isblank(msg[3]) > 0){
-          sf(dSC, msg);
-        }
         else {
           char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
           sendMessage(dSC, erreur, "Erreur bad command");
@@ -558,10 +544,14 @@ void* client(void * parametres) {
   pthread_exit(0);
 }
 
-void* file(void * parametres) {
-  struct fileStruct* f = (struct fileStruct *) parametres;
-
+/**
+ * @brief Fonction qui gère le protocole de copie d'un fichier client dans le serveur
+ * 
+ * @param f 
+ */
+void fileToServer(struct fileStruct * f){
   char msg[SIZE_MESSAGE];
+  
   recvMessage(f->dSF, msg, "Erreur recv filename");
   char path[SIZE_MESSAGE] = "./download_server/";
   strcat(path, msg);
@@ -600,6 +590,86 @@ void* file(void * parametres) {
       fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
       fclose(fp);
     }
+  }
+}
+
+/**
+ * @brief Fonction qui gère le protocole d'envoie d'un fichier serveur au client
+ * 
+ * @param f 
+ */
+void fileToClient(struct fileStruct * f){
+  char m[SIZE_MESSAGE];
+  //On attends le nom du fichier
+  recvMessage(f->dSF, m, "Erreur file connexion");
+
+  pthread_mutex_lock(&mutex_file);
+  
+  struct stat st;
+  char path[SIZE_MESSAGE] = "./download_server/";
+  strcat(path, m);
+  stat(path, &st);
+  int size = st.st_size;
+  char sizeString[10];
+  sprintf(sizeString, "%d", size);
+
+  pthread_mutex_unlock(&mutex_file);
+
+  sendMessage(f->dSF,"OK", "Erreur confirm file name to client");
+  
+  //On attends le READY
+  recvMessage(f->dSF, m, "Erreur receive READY");
+
+  if(strcmp(m, "READY") == 0) {
+    //On envoie la taille du fichier demandé
+    sendMessage(f->dSF, sizeString, "Erreur send size");
+    //On attend la confirmation du serveur
+    recvMessage(f->dSF, m, "Erreur file protocol");
+
+    if(strcmp(m, "OK") == 0){
+      pthread_mutex_lock(&mutex_file);
+      FILE * fp = fopen(path, "rb");
+      int dataSent = 0;
+      
+      while(dataSent < size && strcmp(m, "OK") == 0) {
+        int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+        char data[sizeToGet];
+        dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+        int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
+        if(sent == -1 ) {
+          perror("Erreur send data file");exit(1);
+        }
+        recvMessage(f->dSF, m, "Erreur recv file OK");
+      }
+      sendMessage(f->dSF, "END", "Erreur send file end");
+      /*else { // error handling
+        if (feof(fp))
+            printf("Error reading test.bin: unexpected end of file\n");
+        else if (ferror(fp)) {
+            perror("Error reading test.bin");
+        }
+      }*/
+      fclose(fp);
+      pthread_mutex_unlock(&mutex_file);
+    }  
+  }
+}
+
+void* file(void * parametres) {
+  struct fileStruct* f = (struct fileStruct *) parametres;
+
+  char msg[SIZE_MESSAGE];
+  //On attend de savoir quelle action on doit faire : RCV ou SEND
+  recvMessage(f->dSF, msg, "Erreur recv protocol");
+  //On envoie qu'on a bien reçu l'action
+  sendMessage(f->dSF, "OK", "Erreur send ok for protocol");
+
+  if(strcmp(msg, "SEND") == 0){
+    fileToServer(f);
+  }
+  else if(strcmp(msg,"RCV")==0){
+    fileToClient(f);
   }
 
   pushStack(zombieStackFiles, f->numero);

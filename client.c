@@ -138,6 +138,102 @@ void* cleaner() {
 }
 
 /**
+ * @brief Processus gérant la reception d'un fichier du dossier "dowload_server" dans le dossier "dowload_client"
+ * 
+ * @return void* 
+ */
+void* receiveFileProcess(void * parametres){
+  struct fileStruct * f = (struct fileStruct *) parametres;
+
+  //Création du socket
+  int dSF = socket(PF_INET, SOCK_STREAM, 0);
+  if(dSF == -1) {
+    perror("Erreur socket dSF");exit(1);
+  }
+
+  struct sockaddr_in aS;
+  aS.sin_family = AF_INET;
+  inet_pton(AF_INET, ip, &(aS.sin_addr));
+  aS.sin_port = htons(port_file);
+  socklen_t lgA = sizeof(struct sockaddr_in);
+  if(-1 == connect(dSF, (struct sockaddr *) &aS, lgA)) {
+    perror("Erreur connect dSF");exit(1);
+  }
+
+  char m[SIZE_MESSAGE];
+  //On attends la confirmation de connexion au serveur
+  recvMessage(dSF, m, "Erreur file connexion");
+
+  if(strcmp(m, "OK") == 0) {
+    //On envoie qu'on souhaite récupérer un fichier
+    sendMessage(dSF, "RCV", "Erreur protocol file receive");
+    //On attend la confirmation du serveur
+    recvMessage(dSF, m, "Erreur file protocol");
+
+    if(strcmp(m, "OK") == 0){
+      // On envoie le nom du fichier
+      sendMessage(dSF, f->filename, "Erreur send filename");
+      // On attends que le serveur nous dis si le fichier n'existe pas
+      recvMessage(dSF, m, "Erreur file filename");
+
+      if(strcmp(m, "OK") == 0) {
+        //On envoie un message pour dire : on est prêt !
+        sendMessage(dSF, "READY","Erreur send READY");
+        //On attend la taille du fichier demandé
+        recvMessage(dSF, m, "Erreur receive size");
+        printf("size : %s \n",m);
+        sendMessage(dSF,"OK","Erreur confirm receive size");
+        //On récupère la taille du fichier
+        int size = atoi(m);
+        char buffer[size];
+        strcpy(buffer,"");
+        int dataTotal = 0;
+        int sizeToGet = size;
+        do {
+          sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
+          if(sizeToGet > 0) {
+            char data[sizeToGet+1];
+            int dataGet = recv(dSF, data, sizeof(char)*sizeToGet, 0);
+            if(dataGet == -1) {
+              perror("Erreur recv file data");exit(1);
+            }
+            data[sizeToGet] = '\0';
+            dataTotal += dataGet;
+            strcat(buffer, data);
+            sendMessage(dSF, "OK", "Erreur file confirm data");
+          }
+        } while(sizeToGet > 0);
+
+        recvMessage(dSF, m, "Erreur recv file END");
+        if(strcmp(m, "END") == 0) {
+          char path[SIZE_MESSAGE] = "./download_client/";
+          strcat(path, f->filename);
+          printf("path : %s\n",path);
+          // Enregistrer le fichier :
+          FILE *fp = fopen(path, "wb"); // must use binary mode
+          fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
+          fclose(fp);
+        }
+
+      }else if(strcmp(m, "FileNotExists") == 0){
+        printf("@rcvf : Le fichier %s n'existe pas dans le serveur.\n", f->filename);
+      }
+    }
+    
+  }
+
+  pthread_mutex_unlock(&mutex_file);
+
+  pthread_mutex_lock(&mutex_thread_file);
+  tabIndexThreadFile[f->numero] = 1;
+  free(f->filename);
+  free(f);
+  pthread_mutex_unlock(&mutex_thread_file);
+  close(dSF);
+  pthread_exit(0);
+}
+
+/**
  * @brief Processus gérant l'envoie d'un fichier du dossier "download_client"au serveur
  * 
  * @param filename
@@ -174,40 +270,47 @@ void* sendFileProcess(void * parametres) {
   recvMessage(dSF, m, "Erreur file connexion");
 
   if(strcmp(m, "OK") == 0) {
-    // On envoie le nom du fichier
-    sendMessage(dSF, f->filename, "Erreur send filename");
-    // On attends que le serveur nous dis si un fichier n'existe pas déjà sous ce nom
-    recvMessage(dSF, m, "Erreur file filename");
+    //On envoie qu'on souhaite déposer un fichier
+    sendMessage(dSF, "SEND", "Erreur protocol file receive");
+    //On attend la confirmation du serveur
+    recvMessage(dSF, m, "Erreur file protocol");
 
-    if(strcmp(m, "OK") == 0) {
-      // On envoie alors la taille, puis les données
-      sendMessage(dSF, sizeString, "Erreur send size");
-      recvMessage(dSF, m, "Erreur recv file OK");
+    if(strcmp(m, "OK") == 0){
+      // On envoie le nom du fichier
+      sendMessage(dSF, f->filename, "Erreur send filename");
+      // On attends que le serveur nous dis si un fichier n'existe pas déjà sous ce nom
+      recvMessage(dSF, m, "Erreur file filename");
 
       if(strcmp(m, "OK") == 0) {
-        FILE * fp = fopen(path, "rb");
-        int dataSent = 0;
-        
-        while(dataSent < size && strcmp(m, "OK") == 0) {
-          int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
-          char data[sizeToGet];
-          dataSent += fread(data, sizeof(char), sizeToGet, fp);
+        // On envoie alors la taille, puis les données
+        sendMessage(dSF, sizeString, "Erreur send size");
+        recvMessage(dSF, m, "Erreur recv file OK");
 
-          int sent = send(dSF, data, sizeof(char)*sizeToGet, 0);
-          if(sent == -1 ) {
-            perror("Erreur send data file");exit(1);
+        if(strcmp(m, "OK") == 0) {
+          FILE * fp = fopen(path, "rb");
+          int dataSent = 0;
+          
+          while(dataSent < size && strcmp(m, "OK") == 0) {
+            int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+            char data[sizeToGet];
+            dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+            int sent = send(dSF, data, sizeof(char)*sizeToGet, 0);
+            if(sent == -1 ) {
+              perror("Erreur send data file");exit(1);
+            }
+            recvMessage(dSF, m, "Erreur recv file OK");
           }
-          recvMessage(dSF, m, "Erreur recv file OK");
+          sendMessage(dSF, "END", "Erreur send file end");
+          /*else { // error handling
+            if (feof(fp))
+                printf("Error reading test.bin: unexpected end of file\n");
+            else if (ferror(fp)) {
+                perror("Error reading test.bin");
+            }
+          }*/
+          fclose(fp);
         }
-        sendMessage(dSF, "END", "Erreur send file end");
-        /*else { // error handling
-          if (feof(fp))
-              printf("Error reading test.bin: unexpected end of file\n");
-          else if (ferror(fp)) {
-              perror("Error reading test.bin");
-          }
-        }*/
-         fclose(fp);
       }
     }
   }
@@ -239,6 +342,41 @@ int getEmptyPosition(int tab[], int taille) {
     }
   }
   return p;
+}
+
+/**
+ * @brief Va chercher un fichier du serveur demandé par le client et l'ajoute dans son répertoire personnel
+ * 
+ * @param m 
+ */
+void receiveFile(char m[]){
+  //Récupération du nom du fichier voulu
+  int i = 5;
+  while(isblank(m[i])>0){
+    i++;
+  }
+  //On enlève les espaces à la fin
+  int j = strlen(m);
+  while(isblank(m[j])>0){
+    j--;
+  }
+  //On créé un espace pour le nom du fichier et on le copie dedans
+  int taille = j - i + 1;
+  char *nomFichier = (char*)malloc(taille);
+  strncpy(nomFichier, m + i, taille);
+  //Enlever \n à la fin du nom du fichier
+  nomFichier[strcspn(nomFichier, "\n")] = 0;
+
+  //Création du thread
+  struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
+  self->filename = nomFichier;
+
+  pthread_mutex_lock(&mutex_thread_file);
+  self->numero = getEmptyPosition(tabIndexThreadFile, MAX_FILES);
+  tabIndexThreadFile[self->numero] = 0;
+  pthread_mutex_unlock(&mutex_thread_file);
+
+  pthread_create(&thread_files[self->numero], NULL, receiveFileProcess, (void*)self);
 }
 
 /**
@@ -327,9 +465,15 @@ void pereSend(int dS) {
     fgets(m, SIZE_MESSAGE, stdin);
     
     if(strlen(m) > 0) {
+      //Commande pour envoyer un fichier client dans le serveur
       if(strcmp(m, "@sendfile\n") == 0){
         selectFile();
-      }else{
+      }
+      //Commande pour récupérer un fichier du serveur dans l'espace client
+      else if (m[1] == 'r' && m[2] == 'c' && m[3]=='v' && m[4]=='f' && isblank(m[5]) > 0){
+        receiveFile(m);
+      }
+      else{
         s = send(dS, m, strlen(m)+1, 0);
         if(-1 == s) {
           perror("Erreur send");exit(1);
