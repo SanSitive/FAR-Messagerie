@@ -274,14 +274,27 @@ void transformCommand(char m[]) {
  */
 void help(int dSC) {
   pthread_mutex_lock(&mutex_help);
-  FILE *fileSource;
-  fileSource = fopen("help.txt", "r");
-  char ch;
-  char help[SIZE_MESSAGE] = "";
-  while( ( ch = fgetc(fileSource) ) != EOF )
-    strncat(help,&ch,1);
-  fclose(fileSource);
+  struct stat st;
+  stat("help.txt", &st);
+  int size = st.st_size;
+
+  FILE *fp;
+  fp = fopen("help.txt", "r");
+  char ch = 'a';
+  char help[SIZE_MESSAGE] = "baba";
+  //while( ( ch = fgetc(fileSource) ) != EOF ) {}
+    //strncat(help,&ch,1);
+
+  int dataSent = 0;
+          
+  while(dataSent < size) {
+    int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+    dataSent += fread(help, sizeof(char), sizeToGet, fp);
+  }
+
   sendMessage(dSC, help, "Erreur send help");
+  //send(dSC, help, size, 0);
+  fclose(fp);
   pthread_mutex_unlock(&mutex_help);
 }
 

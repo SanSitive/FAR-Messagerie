@@ -94,8 +94,18 @@ void arret() {
   exit(EXIT_SUCCESS);
 }
 
+/**
+ * @brief Vérifie que le pseudo est correctement écrit, c'est-à-dire sans espace ou retour à la ligne
+ * 
+ * @param pseudo char[]
+ * @return int 1 si pseudo correct, 0 sinon
+ */
 int verifPseudo(char pseudo[]) {
   int res = 1;
+  if(strlen(pseudo) == 1 && pseudo[0] == '\n') {
+    return 0;
+  }
+
   //Enlever \n à la fin du pseudo
   pseudo[strcspn(pseudo, "\n")] = 0;
   for(size_t i=0; i<strlen(pseudo); i++) {
@@ -464,7 +474,7 @@ void pereSend(int dS) {
   do {
     fgets(m, SIZE_MESSAGE, stdin);
     
-    if(strlen(m) > 0) {
+    if(strlen(m) > 1) {
       //Commande pour envoyer un fichier client dans le serveur
       if(strcmp(m, "@sendfile\n") == 0){
         selectFile();
@@ -479,7 +489,7 @@ void pereSend(int dS) {
           perror("Erreur send");exit(1);
         }
         // Non déconnecté
-        else if(s != 0 && m[0] != '@') {
+        else if(s != 0) {
           puts("Message Envoyé");
         }
       }
