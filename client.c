@@ -504,10 +504,10 @@ void pereSend(int dS) {
  * @param taille 
  */
 void filsRecv(int dS) {
-  char reception[SIZE_MESSAGE];
-  int r;
+  int fini = 0;
   do {
-    r = recvMessage(dS, reception, "Erreur recv");
+    char reception[SIZE_MESSAGE];
+    int r = recvMessage(dS, reception, "Erreur recv");
     if(strcmp(reception, "@shutdown") == 0) {
       break;
     }
@@ -515,7 +515,10 @@ void filsRecv(int dS) {
     else if(r != 0) {
       puts(reception);
     }
-  } while(strcmp(reception, "@d\n")!=0 && strcmp(reception, "@disconnect\n")!=0 && r!=0);
+    if(strcmp(reception, "@d\n") == 0 || strcmp(reception, "@disconnect\n") ==0 || r==0){
+      fini = 1;
+    }
+  } while(fini != 1);
 }
 
 int main(int argc, char *argv[]) {
