@@ -43,16 +43,37 @@ struct fileStruct {
  * 
  * @param dS 
  * @param msg 
- * @param erreur 
+ * @param erreur
+ * @return Nombre d'octets envoyé, ou -1 s'il y a une erreur
  */
 int sendMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
-  if((r = send(dS, msg, strlen(msg)+1, 0)) == -1 ) {
+  int size = strlen(msg)+1;
+  for(int i = size+1; i<SIZE_MESSAGE; i++) {
+    msg[i] = 0;
+  }
+  if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
+    perror(erreur);exit(1);
+  }
+  return r;
+}
+int sendConstantMessage(int dS, char msg[], char erreur[]) {
+  int r = 0;
+  int size = strlen(msg)+1;
+  if((r = send(dS, msg, size, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
   return r;
 }
 
+/**
+ * @brief Fonction pour recevoir les messages
+ * 
+ * @param dS 
+ * @param msg 
+ * @param erreur 
+ * @return Nombre d'octets reçu
+ */
 int recvMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
   if((r = recv(dS, msg, sizeof(char)*SIZE_MESSAGE, 0)) == -1) {
@@ -60,6 +81,28 @@ int recvMessage(int dS, char msg[], char erreur[]) {
   }
   return r;
 }
+/**
+ * @brief Renvoie une socket créée à partir d'une adresse ip et d'un port
+ * 
+ * @return int 
+ */
+int createSocket(char * ip, int port) {
+  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  if(dS == -1) {
+    perror("Erreur socket dSF");exit(1);
+  }
+
+  struct sockaddr_in aS;
+  aS.sin_family = AF_INET;
+  inet_pton(AF_INET, ip, &(aS.sin_addr));
+  aS.sin_port = htons(port);
+  socklen_t lgA = sizeof(struct sockaddr_in);
+  if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
+    perror("Erreur connect dSF");exit(1);
+  }
+  return dS;
+}
+
 /**
  * @brief Ferme le socket client
  * 
@@ -77,7 +120,7 @@ void stopClient(int dS) {
   pthread_mutex_destroy(&mutex_thread_file);
 
   // Préviens le serveur
-  sendMessage(dS, "@disconnect", "Erreur send disconnect");
+  sendConstantMessage(dS, "@disconnect", "Erreur send disconnect");
   puts("Fin du client");
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");exit(1);
@@ -155,20 +198,8 @@ void* cleaner() {
 void* receiveFileProcess(void * parametres){
   struct fileStruct * f = (struct fileStruct *) parametres;
 
-  //Création du socket
-  int dSF = socket(PF_INET, SOCK_STREAM, 0);
-  if(dSF == -1) {
-    perror("Erreur socket dSF");exit(1);
-  }
-
-  struct sockaddr_in aS;
-  aS.sin_family = AF_INET;
-  inet_pton(AF_INET, ip, &(aS.sin_addr));
-  aS.sin_port = htons(port_file);
-  socklen_t lgA = sizeof(struct sockaddr_in);
-  if(-1 == connect(dSF, (struct sockaddr *) &aS, lgA)) {
-    perror("Erreur connect dSF");exit(1);
-  }
+  //Création de la socket
+  int dSF = createSocket(ip, port_file);
 
   char m[SIZE_MESSAGE];
   //On attends la confirmation de connexion au serveur
@@ -176,7 +207,7 @@ void* receiveFileProcess(void * parametres){
 
   if(strcmp(m, "OK") == 0) {
     //On envoie qu'on souhaite récupérer un fichier
-    sendMessage(dSF, "RCV", "Erreur protocol file receive");
+    sendConstantMessage(dSF, "RCV", "Erreur protocol file receive");
     //On attend la confirmation du serveur
     recvMessage(dSF, m, "Erreur file protocol");
 
@@ -188,11 +219,11 @@ void* receiveFileProcess(void * parametres){
 
       if(strcmp(m, "OK") == 0) {
         //On envoie un message pour dire : on est prêt !
-        sendMessage(dSF, "READY","Erreur send READY");
+        sendConstantMessage(dSF, "READY","Erreur send READY");
         //On attend la taille du fichier demandé
         recvMessage(dSF, m, "Erreur receive size");
         printf("size : %s \n",m);
-        sendMessage(dSF,"OK","Erreur confirm receive size");
+        sendConstantMessage(dSF,"OK","Erreur confirm receive size");
         //On récupère la taille du fichier
         int size = atoi(m);
         char buffer[size];
@@ -210,7 +241,7 @@ void* receiveFileProcess(void * parametres){
             data[sizeToGet] = '\0';
             dataTotal += dataGet;
             strcat(buffer, data);
-            sendMessage(dSF, "OK", "Erreur file confirm data");
+            sendConstantMessage(dSF, "OK", "Erreur file confirm data");
           }
         } while(sizeToGet > 0);
 
@@ -281,7 +312,7 @@ void* sendFileProcess(void * parametres) {
 
   if(strcmp(m, "OK") == 0) {
     //On envoie qu'on souhaite déposer un fichier
-    sendMessage(dSF, "SEND", "Erreur protocol file receive");
+    sendConstantMessage(dSF, "SEND", "Erreur protocol file receive");
     //On attend la confirmation du serveur
     recvMessage(dSF, m, "Erreur file protocol");
 
@@ -311,7 +342,7 @@ void* sendFileProcess(void * parametres) {
             }
             recvMessage(dSF, m, "Erreur recv file OK");
           }
-          sendMessage(dSF, "END", "Erreur send file end");
+          sendConstantMessage(dSF, "END", "Erreur send file end");
           /*else { // error handling
             if (feof(fp))
                 printf("Error reading test.bin: unexpected end of file\n");
@@ -472,8 +503,12 @@ void pereSend(int dS) {
   char m[SIZE_MESSAGE];
   int s = 1;
   do {
-    fgets(m, SIZE_MESSAGE, stdin);
-    
+    fgets(m, SIZE_MESSAGE-1, stdin);
+    printf("Message avant : %s\n", m);
+    printf("Taille avant : %d\n", strlen(m)+1);
+    m[SIZE_MESSAGE-1] = '\0';
+    printf("Message après : %s\n", m);
+    printf("Taille après : %d\n", strlen(m)+1);
     if(strlen(m) > 1) {
       //Commande pour envoyer un fichier client dans le serveur
       if(strcmp(m, "@sendfile\n") == 0){
@@ -484,7 +519,7 @@ void pereSend(int dS) {
         receiveFile(m);
       }
       else{
-        s = send(dS, m, strlen(m)+1, 0);
+        s = sendMessage(dS, m, "Erreur send pere");
         if(-1 == s) {
           perror("Erreur send");exit(1);
         }
@@ -513,6 +548,7 @@ void filsRecv(int dS) {
     }
     // Non déconnecté
     else if(r != 0) {
+      printf("Taille : %d\n", strlen(reception)+1);
       puts(reception);
     }
     if(strcmp(reception, "@d\n") == 0 || strcmp(reception, "@disconnect\n") ==0 || r==0){
@@ -533,21 +569,7 @@ int main(int argc, char *argv[]) {
   port_file = port + 100;
 
   //Création du client
-  dS = socket(PF_INET, SOCK_STREAM, 0);
-  if(dS == -1) {
-    perror("Erreur socket");exit(1);
-  }
-  puts("Socket Créé");
-  puts("Connexion en cours");
-
-  struct sockaddr_in aS;
-  aS.sin_family = AF_INET;
-  inet_pton(AF_INET, ip, &(aS.sin_addr));
-  aS.sin_port = htons(port);
-  socklen_t lgA = sizeof(struct sockaddr_in);
-  if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
-    perror("Erreur connect");exit(1);
-  }
+  dS = createSocket(ip, port);
 
   char m[SIZE_MESSAGE];
 
