@@ -74,11 +74,11 @@ struct fileStruct {
  */
 int sendMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
-  int size = strlen(msg)+1;
+  /*int size = strlen(msg)+1;
   for(int i = size; i<SIZE_MESSAGE; i++) {
     msg[i] = 0;
-  }
-  if((r = send(dS, msg, size, 0)) == -1 ) {
+  }*/
+  if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
   return r;
@@ -259,24 +259,49 @@ int login(int dSC, struct clientStruct * p) {
  * @param msg 
  */
 void clientToAll(struct clientStruct* p, char msg[]) {
-  pthread_mutex_lock(&mutex_clients);
   char msgPseudo[SIZE_MESSAGE];
-  printf("Message : %d\n", msg);
-  printf("Taille Message : %d\n", strlen(msg)+1);
+  pthread_mutex_lock(&mutex_clients);
   strcpy(msgPseudo, p->pseudo);
+  pthread_mutex_unlock(&mutex_clients);
   strcat(msgPseudo, " : ");
-  strcat(msgPseudo, msg);
+  int sizeMsgPseudo = strlen(msgPseudo);
+  int sizeMsg = strlen(msg) + 1;
 
-  // MP ASUSSI  :DECOUPE EN DEUX CON DE TOI
-  printf("MessagePseudo: %d\n", msgPseudo);
-  printf("Taille pseudi : %d\n", strlen(msgPseudo)+1);
-  for(int i = 0; i<MAX_CLIENTS; i++) {
-    if(clients[i] != NULL) {
-      if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-        sendMessage(clients[i]->dSC, msgPseudo, "Erreur send clientToAll");
+  int toSend = sizeMsg;
+  int nbSend = 0;
+  //Tant qu'on a pas envoyé le message en entier
+  //(Plus le pseudo est grand, plus le nombre de boucle nécessaire sera importante)
+  while(toSend > nbSend) {
+    char msgToSend[SIZE_MESSAGE];
+    strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
+    msgToSend[sizeMsgPseudo] = '\0';
+    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
+    if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
+      int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
+      strncat(msgToSend, msg+nbSend, sizeToSend);
+      msgToSend[SIZE_MESSAGE-1] = '\0';
+      nbSend += sizeToSend;
+    }
+    //Sinon on peut directement ajouter ce qu'il reste
+    else {
+      strcat(msgToSend, msg+nbSend);
+      nbSend = toSend;
+    }
+    printf("\n%s\n", msgToSend);
+    //On envoie le message aux autres clients
+    pthread_mutex_lock(&mutex_clients);
+    for(int i = 0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) {
+        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+          sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+        }
       }
     }
+    pthread_mutex_unlock(&mutex_clients);
   }
+
+  // MP ASUSSI  :DECOUPE EN DEUX CON DE TOI
+
   pthread_mutex_unlock(&mutex_clients);
 }
 

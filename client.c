@@ -48,10 +48,10 @@ struct fileStruct {
  */
 int sendMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
-  int size = strlen(msg)+1;
+  /*int size = strlen(msg)+1;
   for(int i = size+1; i<SIZE_MESSAGE; i++) {
     msg[i] = 0;
-  }
+  }*/
   if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
@@ -504,11 +504,8 @@ void pereSend(int dS) {
   int s = 1;
   do {
     fgets(m, SIZE_MESSAGE-1, stdin);
-    printf("Message avant : %s\n", m);
-    printf("Taille avant : %d\n", strlen(m)+1);
     m[SIZE_MESSAGE-1] = '\0';
-    printf("Message après : %s\n", m);
-    printf("Taille après : %d\n", strlen(m)+1);
+
     if(strlen(m) > 1) {
       //Commande pour envoyer un fichier client dans le serveur
       if(strcmp(m, "@sendfile\n") == 0){
@@ -548,7 +545,6 @@ void filsRecv(int dS) {
     }
     // Non déconnecté
     else if(r != 0) {
-      printf("Taille : %d\n", strlen(reception)+1);
       puts(reception);
     }
     if(strcmp(reception, "@d\n") == 0 || strcmp(reception, "@disconnect\n") ==0 || r==0){
