@@ -89,11 +89,14 @@ struct fileStruct {
  * @param dS 
  * @param msg 
  * @param erreur
+ * @return Nombre d'octets envoyé, ou -1 s'il y a une erreur
  */
-void sendMessage(int dS, char msg[], char erreur[]) {
-  if(-1 == send(dS, msg, strlen(msg)+1, 0)) {
+int sendMessage(int dS, char msg[], char erreur[]) {
+  int r = 0;
+  if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
+  return r;
 }
 
 /**
@@ -111,6 +114,30 @@ int recvMessage(int dS, char msg[], char erreur[]) {
   }
   return r;
 }
+/**
+ * @brief Créée une socket en mode écoute, à partir d'un port
+ * 
+ * @return int 
+ */
+int createSocketServer(int port) {
+  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  if(dS == -1) {
+    perror("Erreur socket");exit(1);
+  }
+
+  struct sockaddr_in ad;
+  ad.sin_family = AF_INET;
+  ad.sin_addr.s_addr = INADDR_ANY;
+  ad.sin_port = htons(port);
+  if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
+    perror("Erreur bind");exit(1);
+  }
+
+  if(-1 == listen(dS, 7)) {
+    perror("Erreur listen");exit(1);
+  }
+  return dS;
+}
 
 /**
  * @brief Ferme le serveur
@@ -122,10 +149,9 @@ void stopServeur(int dS) {
   pthread_cancel(thread_cleaner);
   // Ferme les threads des clients
   pthread_mutex_lock(&mutex_clients);
-  char msg[20] = "@shutdown";
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
-      sendMessage(clients[i]->dSC, msg, "Erreur send shutdown");
+      sendMessage(clients[i]->dSC, "@shutdown", "Erreur send shutdown");
       if(clients[i]->pseudo != NULL)
         free(clients[i]->pseudo);
       free(clients[i]);
@@ -142,22 +168,15 @@ void stopServeur(int dS) {
   pthread_mutex_lock(&mutex_channel_place);
   for(int i=0; i<MAX_CHANNEL; i++) {
     if(channels[i] != NULL) {
-      printf("P1 : i =%d\n",i);
       if(channels[i]->name != NULL && channels[i]->description != NULL){
-        printf("P2 : i =%d\n",i);
-        printf("Name : %s\n",channels[i]->name);
         free(channels[i]->name);
       }
       if(channels[i]->description != NULL){
-        printf("P3 : i =%d\n",i);
-        printf("Description : %s\n",channels[i]->description);
         free(channels[i]->description);
       }
-      printf("P4 : i =%d\n",i);
       free(channels[i]);
     }
   }
-  printf("P5\n");
   free(channels);
   pthread_mutex_unlock(&mutex_channel_place);
 
@@ -174,6 +193,14 @@ void stopServeur(int dS) {
   pthread_mutex_destroy(&mutex_clients);
   pthread_mutex_destroy(&mutex_help);
   pthread_mutex_destroy(&mutex_thread);
+  pthread_mutex_destroy(&mutex_channel_place);
+  pthread_mutex_destroy(&mutex_channel_file);
+  sem_destroy(&sem_place);
+  sem_destroy(&sem_thread);
+  sem_destroy(&sem_place_channels);
+  sem_destroy(&sem_place_files);
+  sem_destroy(&sem_thread_files);
+
 
   //Clear les piles
   clearStack(zombieStack);
@@ -242,16 +269,14 @@ int login(int dSC, struct clientStruct * p) {
 
   // Réponse au client
   if(res == 1) {
-    char retour[20] = "OK";
-    sendMessage(dSC, retour, "Erreur send login");
+    sendMessage(dSC, "OK", "Erreur send login");
     pthread_mutex_lock(&mutex_clients);
     p->pseudo = (char*)malloc(sizeof(char)*strlen(msg)+1);
     strcpy(p->pseudo, msg);
     pthread_mutex_unlock(&mutex_clients);
   }
   else {
-    char retour[20] = "PseudoTaken";
-    sendMessage(dSC, retour, "Erreur send PseudoTaken");
+    sendMessage(dSC, "PseudoTaken", "Erreur send PseudoTaken");
   }
 
   return res;
@@ -264,18 +289,46 @@ int login(int dSC, struct clientStruct * p) {
  * @param msg 
  */
 void clientToAll(struct clientStruct* p, char msg[]) {
-  pthread_mutex_lock(&mutex_clients);
   char msgPseudo[SIZE_MESSAGE];
+  pthread_mutex_lock(&mutex_clients);
   strcpy(msgPseudo, p->pseudo);
+  pthread_mutex_unlock(&mutex_clients);
   strcat(msgPseudo, " : ");
-  strcat(msgPseudo, msg);
-  for(int i = 0; i<MAX_CLIENTS; i++) {
-    if(clients[i] != NULL) {
-      if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-        sendMessage(clients[i]->dSC, msgPseudo, "Erreur send clientToAll");
+  int sizeMsgPseudo = strlen(msgPseudo);
+  int sizeMsg = strlen(msg) + 1;
+
+  int toSend = sizeMsg;
+  int nbSend = 0;
+  //Tant qu'on a pas envoyé le message en entier
+  while(toSend > nbSend) {
+    char msgToSend[SIZE_MESSAGE];
+    strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
+    msgToSend[sizeMsgPseudo] = '\0';
+    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
+    if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
+      int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
+      strncat(msgToSend, msg+nbSend, sizeToSend);
+      msgToSend[SIZE_MESSAGE-1] = '\0';
+      nbSend += sizeToSend;
+    }
+    //Sinon on peut directement ajouter ce qu'il reste
+    else {
+      strcat(msgToSend, msg+nbSend);
+      nbSend = toSend;
+    }
+    printf("\n%s\n", msgToSend);
+    //On envoie le message aux autres clients
+    pthread_mutex_lock(&mutex_clients);
+    for(int i = 0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) {
+        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+          sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+        }
       }
     }
+    pthread_mutex_unlock(&mutex_clients);
   }
+
   pthread_mutex_unlock(&mutex_clients);
 }
 
@@ -319,7 +372,7 @@ void help(int dSC) {
   fileSource = fopen("help.txt", "r");
 
   char ch;
-  char *help = malloc(SIZE_MESSAGE*sizeof(char));
+  char help[SIZE_MESSAGE];
   int count = 0;
   while( ( ch = fgetc(fileSource) ) != EOF ){
     strncat(help,&ch,1);
@@ -333,17 +386,15 @@ void help(int dSC) {
         help[count] = '\0';
       }
       
-      sendMessage(dSC, help, "Erreur send help");
-      sleep(0.001); //(TEMPORAIRE) Sinon le String help a été réinitialis2 avant même d'être envoyé
+      sendMessage(dSC, help, "");
       strcpy(help,"");
-      //memset(help,0,sizeof(char)); //Réinitialise le string buffer
       count = 0;
     }
   }
   if(count > 0){
-    sendMessage(dSC, help, "Erreur send help");
+    help[count] = '\0';
+    sendMessage(dSC, help, "");
   }
-  free(help);
   fclose(fileSource);
   pthread_mutex_unlock(&mutex_help);
 }
@@ -376,7 +427,7 @@ void listClients(int dSC) {
  */
 void dm(struct clientStruct* p, char msg[]) {
   //On créer une place pour le message et le pseudo
-  int taillePM = strlen(msg) - 3;
+  int taillePM = strlen(msg) - 3 + 1;
   char *pseudoMessage = (char*)malloc(taillePM);
   //On récupère le pseudo et le message dans un premier temps
   strncpy(pseudoMessage, msg + 3, taillePM);
@@ -415,16 +466,20 @@ void dm(struct clientStruct* p, char msg[]) {
   char *message = (char*)malloc(tailleM + 1);
   strncpy(message, pseudoMessage + debutM, tailleM);
   message[tailleM] = '\0';
-  printf(" message : %s\n",message);
 
   //On cherche le pseudo dans la liste des pseudos existants 
   pthread_mutex_lock(&mutex_clients);
-  int found = 0;
+  int error = 1;
 
   //Si le client s'envoie un message à lui même
   if(strcmp(p->pseudo, pseudo) == 0){
-          found = 2;
-  }else{
+    error = 2;
+  }
+  //Si la taille du message en comptant le pseudo est trop grande
+  else if(strlen(p->pseudo) + strlen(" (mp) : ") + strlen(message) > SIZE_MESSAGE) {
+    error = 3;
+  }
+  else{
     for(int i=0; i<MAX_CLIENTS; i++) {
       if(clients[i] != NULL) { //On vérifie que le client existe
         if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
@@ -433,9 +488,8 @@ void dm(struct clientStruct* p, char msg[]) {
             strcpy(msgComplet, p->pseudo);
             strcat(msgComplet, " (mp) : ");
             strcat(msgComplet, message);
-            printf("msgComplet : %s\n",msgComplet);
             sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
-            found = 1;
+            error = 0;
             break;
           }
         }
@@ -443,12 +497,13 @@ void dm(struct clientStruct* p, char msg[]) {
     }
   }
   //Si le pseudo n'appartient à personne
-  if(found == 0) {
-    char erreur[SIZE_MESSAGE] = "Cet utilisateur n'existe pas ou n'est pas connecté";
-    sendMessage(p->dSC, erreur, "Erreur send erreur dm found == 0");
-  }else if(found == 2){
-    char erreur[SIZE_MESSAGE] = "Vous ne pouvez pas vous envoyer un message à vous même";
-    sendMessage(p->dSC, erreur, "Erreur send erreur dm found == 2");
+  if(error == 1) {
+    sendMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
+  }else if(error == 2){
+    sendMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
+  }
+  else if(error == 3) {
+    sendMessage(p->dSC, "La taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
   }
 
   pthread_mutex_unlock(&mutex_clients);
@@ -504,11 +559,9 @@ void filesServeur(int dSC){
 }
 
 void allChannels(int dSC){
-  
   pthread_mutex_lock(&mutex_channel_place);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
-      //printf("%s\n",channels[i]->name);
       sendMessage(dSC,channels[i]->name,"Erreur envoi channel");
     }
   }
@@ -518,7 +571,7 @@ void allChannels(int dSC){
 /**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
- * @param parametres 
+ * @param parametres Struct clientStruct
  * @return void* 
  */
 void* client(void * parametres) {
@@ -570,8 +623,7 @@ void* client(void * parametres) {
           allChannels(dSC);
         }
         else {
-          char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
-          sendMessage(dSC, erreur, "Erreur bad command");
+          sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
         }
       }
     } while(continu == 1);
@@ -712,6 +764,12 @@ void fileToClient(struct fileStruct * f){
   }
 }
 
+/**
+ * @brief Thread lié à une demande de téléchargement d'un fichier
+ * 
+ * @param parametres Struct fileStruct
+ * @return void* 
+ */
 void* file(void * parametres) {
   struct fileStruct* f = (struct fileStruct *) parametres;
 
@@ -740,13 +798,13 @@ void* file(void * parametres) {
 }
 
 /**
- * @brief Trouve la première place libre dans le tableau, -1 si une place n'a pas été trouvée
+ * @brief Trouve la première place libre dans la liste des clients, -1 si une place n'a pas été trouvée
  * 
  * @param tab 
  * @param taille 
- * @return int 
+ * @return index dans le tableau de la place disponible, -1 si aucune place n'est disponible
  */
-int getEmptyPosition(struct clientStruct * tab[], int taille) {
+int getEmptyPositionClient(struct clientStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
     if(tab[i] == NULL) {
@@ -756,6 +814,13 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
   }
   return p;
 }
+/**
+ * @brief Trouve la première place libre dans la liste des fichiers, -1 si une place n'a pas été trouvée
+ * 
+ * @param tab 
+ * @param taille 
+ * @return index dans le tableau de la place disponible, -1 si aucune place n'est disponible
+ */
 int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
@@ -830,7 +895,12 @@ void* cleaner(){
   }
 }
 
-void ajoutFile(int dSF) {
+/**
+ * @brief Ajoute une socket liée au fichier dans la liste et lance le thread file associé
+ * 
+ * @param dSF 
+ */
+void addFileSocket(int dSF) {
   struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
   self->dSF = dSF;
   self->filename = NULL; // Pas encore reçu les infos
@@ -839,8 +909,7 @@ void ajoutFile(int dSF) {
   self->numero = getEmptyPositionFile(files, MAX_FILES);
 
   files[self->numero] = self;
-  char connexion[20] = "OK";
-  sendMessage(dSF, connexion, "Erreur send connexion File");
+  sendMessage(dSF, "OK", "Erreur send connexion File");
 
   pthread_create(&thread_files[self->numero], NULL, file, (void*)self);
   puts("Demande File Ajouté");
@@ -851,21 +920,21 @@ void ajoutFile(int dSF) {
  * 
  * @param dSC 
  */
-void ajoutClient(int dSC) {
+void addClientSocket(int dSC) {
   pthread_mutex_lock(&mutex_clients);
 
   struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
   self->dSC = dSC;
   self->pseudo = NULL; // Pas encore connecté
-  self->numero = getEmptyPosition(clients, MAX_CLIENTS);
+  self->numero = getEmptyPositionClient(clients, MAX_CLIENTS);
   pthread_mutex_lock(&mutex_channel_place);
   self->channel = channels[0];
   pthread_mutex_unlock(&mutex_channel_place);
   printf("Le channel du client est %s\n",self->channel->name);
+
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
-  char connexion[20] = "OK";
-  sendMessage(dSC, connexion, "Erreur send connexion");
+  sendMessage(dSC, "OK", "Erreur send connexion");
 
   pthread_mutex_lock(&mutex_thread);
   pthread_create(&thread[self->numero], NULL, client, (void*)self);
@@ -875,8 +944,12 @@ void ajoutClient(int dSC) {
   puts("Client Ajouté");
 }
 
+/**
+ * @brief Boucle infinie attendant de nouvelles demandes liées aux fichiers
+ * 
+ * @return void* 
+ */
 void* acceptFiles() {
-  // On attend une nouvelle demande de téléchargement de fichiers
   while(1) {
     // Tant que le nombre max de files n'est pas atteint, on va attendre une connexion
     if(sem_wait(&sem_place_files) == 1) {
@@ -890,13 +963,31 @@ void* acceptFiles() {
     }
 
     // On lance un thread pour la demande d'upload de fichier
-    ajoutFile(dSF);
+    addFileSocket(dSF);
   }
   pthread_exit(0);
 }
 
-void* acceptClients() {
-  pthread_exit(0);
+/**
+ * @brief Boucle infinie attendant de nouveaux clients
+ * 
+ */
+void acceptClients() {
+  while(1) {
+    // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
+    if(sem_wait(&sem_place) == 1) {
+      perror("Erreur wait sémaphore");exit(1);
+    }
+    struct sockaddr_in aC ;
+    socklen_t lg = sizeof(struct sockaddr_in);
+    int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
+    if(dSC == -1) {
+      perror("Erreur accept");exit(1);
+    }
+
+    // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
+    addClientSocket(dSC);
+  }
 }
 
 void initChannels() {
@@ -917,7 +1008,7 @@ void initChannels() {
   fileSource = fopen("channel.txt", "r");
 
   char ch;
-  char *chan = malloc(SIZE_MESSAGE*sizeof(char));
+  char chan[SIZE_MESSAGE];
   int count = 0;
   int END = 0;
   while( (( ch = fgetc(fileSource) ) != EOF) &&  END == 0 ){
@@ -941,12 +1032,11 @@ void initChannels() {
       self->count = 0;
       self->name = malloc((strlen(chan)+1)*sizeof(char));
       strcpy(self->name,chan);
-      //self->name[(int)strlen(chan)] = '\0';
       
       char *temp = "Description générique pour l'instant";
       self->description = malloc((strlen(temp)+1)*sizeof(char));
       strcpy(self->description,"Description générique pour l'instant");
-      //self->description[(int)strlen(temp)] = '\0';
+
       self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
       
       channels[self->numero] = self;
@@ -957,59 +1047,36 @@ void initChannels() {
   }
   //On met la capacité du channel général = au max de clients
   for(int i=0; i<MAX_CHANNEL; i++){
-    printf("%d\n",i);
     if(channels[i] != NULL){
       char temp[8];
       for(int j = 0; j<7; j++){
         temp[j] = channels[i]->name[j];
       }
       if(strcmp(temp,"General") == 0){
-        channels[i]->description = "Le channel général";
+        strcpy(channels[i]->description,"Le channel général");
         channels[i]->capacity = MAX_CLIENTS;
       }
     }
   }
-  for(int j=0; j<MAX_CHANNEL; j++){
-    if(channels[j] != NULL){
-      printf("Le nom du salon est : %s\n",channels[j]->name);
-      printf("La description du salon est : %s\n",channels[j]->description);
-      printf("Le nombre maximum de clients est : %d\n",channels[j]->capacity);
-      printf("Le nombre actuel de personne occupant le salon est : %d\n",channels[j]->count);
-      printf("-------------------------------------------------------------------------------\n");
-    }
-  }
-  free(chan);
   fclose(fileSource);
   pthread_mutex_unlock(&mutex_channel_file);
   pthread_mutex_unlock(&mutex_channel_place);
 
 }
 
+/**
+ * @brief Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer les demandes liées aux fichiers
+ * 
+ * @param port Port sur lequel les sockets vont se connecter
+ */
 void initFiles(int port_file) {
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place_files, 0, MAX_FILES) == 1){
     perror("Erreur init sémaphore");exit(1);
   }
 
-  dSFile = socket(PF_INET, SOCK_STREAM, 0);
-  if(dSFile == -1) {
-    perror("Erreur socket file");exit(1);
-  }
-  puts("Socket File Créé");
-
-  struct sockaddr_in ad;
-  ad.sin_family = AF_INET;
-  ad.sin_addr.s_addr = INADDR_ANY;
-  ad.sin_port = htons(port_file);
-  if(-1 == bind(dSFile, (struct sockaddr*)&ad, sizeof(ad))) {
-    perror("Erreur bind file");exit(1);
-  }
-  puts("Socket File Nommé");
-
-  if(-1 == listen(dSFile, 7)) {
-    perror("Erreur listen file");exit(1);
-  }
-  puts("Mode écoute File");
+  dSFile = createSocketServer(port_file);
+  puts("Socket file créée");
 
   // Liste qui contiendra les informations des clients
   files = (struct fileStruct**)malloc(MAX_FILES*sizeof(struct fileStruct *));
@@ -1023,6 +1090,11 @@ void initFiles(int port_file) {
   pthread_create(&thread_cleaner_files, NULL, cleanerFiles, NULL);
 }
 
+/**
+ * @brief Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer la connexion de clients
+ * 
+ * @param port Port sur lequel les sockets vont se connecter
+ */
 void initClients(int port) {
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
@@ -1030,25 +1102,8 @@ void initClients(int port) {
   }
 
   // Lancement du serveur
-  dS = socket(PF_INET, SOCK_STREAM, 0);
-  if(dS == -1) {
-    perror("Erreur socket client");exit(1);
-  }
-  puts("Socket Client Créé");
-
-  struct sockaddr_in ad;
-  ad.sin_family = AF_INET;
-  ad.sin_addr.s_addr = INADDR_ANY;
-  ad.sin_port = htons(port);
-  if(-1 == bind(dS, (struct sockaddr*)&ad, sizeof(ad))) {
-    perror("Erreur bind client");exit(1);
-  }
-  puts("Socket Client Nommé");
-
-  if(-1 == listen(dS, 7)) {
-    perror("Erreur listen client");exit(1);
-  }
-  puts("Mode écoute Client");
+  dS = createSocketServer(port);
+  puts("Socket client créée");
 
   // Liste qui contiendra les informations des clients
   clients = (struct clientStruct**)malloc(MAX_CLIENTS*sizeof(struct clientStruct *));
@@ -1078,30 +1133,14 @@ int main(int argc, char *argv[]) {
   const int port = atoi(argv[1]);
   const int port_file = port + 100;
   initFiles(port_file);
-  initClients(port);
   initChannels();
+  initClients(port);
 
   pthread_create(&file_manager, NULL, acceptFiles, NULL);
 
   // CTRL-C
   signal(SIGINT, arret);
-
-  // On attend qu'un nouveau client veuille se connecter
-  while(1) {
-    // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
-    if(sem_wait(&sem_place) == 1) {
-      perror("Erreur wait sémaphore");exit(1);
-    }
-    struct sockaddr_in aC ;
-    socklen_t lg = sizeof(struct sockaddr_in);
-    int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
-    if(dSC == -1) {
-      perror("Erreur accept");exit(1);
-    }
-
-    // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
-    ajoutClient(dSC);
-  }
+  acceptClients();
 
   stopServeur(dS);
   exit(EXIT_SUCCESS);

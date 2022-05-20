@@ -17,6 +17,7 @@
 
 #define SIZE_MESSAGE 256
 #define MAX_FILES 3 // Nombre de fichiers qu'on peut envoyer simultanément
+#define SIZE_PSEUDO 20
 int dS;
 char * ip;
 int port;
@@ -43,16 +44,25 @@ struct fileStruct {
  * 
  * @param dS 
  * @param msg 
- * @param erreur 
+ * @param erreur
+ * @return Nombre d'octets envoyé, ou -1 s'il y a une erreur
  */
 int sendMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
-  if((r = send(dS, msg, strlen(msg)+1, 0)) == -1 ) {
+  if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
   return r;
 }
 
+/**
+ * @brief Fonction pour recevoir les messages
+ * 
+ * @param dS 
+ * @param msg 
+ * @param erreur 
+ * @return Nombre d'octets reçu
+ */
 int recvMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
   if((r = recv(dS, msg, sizeof(char)*SIZE_MESSAGE, 0)) == -1) {
@@ -61,11 +71,34 @@ int recvMessage(int dS, char msg[], char erreur[]) {
   return r;
 }
 /**
+ * @brief Renvoie une socket créée à partir d'une adresse ip et d'un port
+ * 
+ * @return int 
+ */
+int createSocket(char * ip, int port) {
+  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  if(dS == -1) {
+    perror("Erreur socket dSF");exit(1);
+  }
+
+  struct sockaddr_in aS;
+  aS.sin_family = AF_INET;
+  inet_pton(AF_INET, ip, &(aS.sin_addr));
+  aS.sin_port = htons(port);
+  socklen_t lgA = sizeof(struct sockaddr_in);
+  if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
+    perror("Erreur connect dSF");exit(1);
+  }
+  return dS;
+}
+
+/**
  * @brief Ferme le socket client
  * 
  * @param dS 
  */
 void stopClient(int dS) {
+
   // Ferme les threads lié à l'upload de fichiers
   for (int i=0;i<MAX_FILES;i++){
     pthread_cancel(thread_files[i]);
@@ -98,24 +131,57 @@ void arret() {
  * @brief Vérifie que le pseudo est correctement écrit, c'est-à-dire sans espace ou retour à la ligne
  * 
  * @param pseudo char[]
- * @return int 1 si pseudo correct, 0 sinon
+ * @return 0 si le pseudo est correct, 1 si trop petit, 2 si trop grand, 3 s'il contient des blancs
  */
 int verifPseudo(char pseudo[]) {
-  int res = 1;
-  if(strlen(pseudo) == 1 && pseudo[0] == '\n') {
-    return 0;
+  int res = 0;
+  int size = strlen(pseudo);
+  //Si pseudo trop petit
+  if(size <1 || pseudo[0] == '\n') {
+    res = 1;
   }
-
-  //Enlever \n à la fin du pseudo
-  pseudo[strcspn(pseudo, "\n")] = 0;
-  for(size_t i=0; i<strlen(pseudo); i++) {
-    if(isblank(pseudo[i])>0) {
-      res = 0;
-      break;
+  //Si pseudo trop grand (+1 car on a pas encore enlever le \n)
+  else if(size > SIZE_PSEUDO+1) {
+    res = 2;
+  }
+  //S'il ne contient pas de blanc
+  else {
+    //Enlever \n à la fin du pseudo
+    pseudo[strcspn(pseudo, "\n")] = 0;
+    for(size_t i=0; i<strlen(pseudo); i++) {
+      if(isblank(pseudo[i])>0) {
+        res = 3;
+        break;
+      }
     }
   }
 
   return res;
+}
+/**
+ * @brief Fonction qui demande à l'utilisateur un pseudo et vérifie sa conformité avant de l'envoyer au serveur
+ * 
+ * @param m Chaine de caractères où sera stocké le pseudo à envoyer
+ */
+void choosePseudo(char m[]) {
+  // Choix du pseudo
+  int verif = 0;
+  do {
+    puts("Choisissez un pseudo :");
+    fgets(m, SIZE_MESSAGE, stdin);
+  
+    verif = verifPseudo(m);
+    if(verif==1) {
+      puts("Le pseudo est trop petit, réessayez :");
+    }
+    else if(verif == 2) {
+      printf("Le pseudo est trop grand (supérieur à %d), réessayez :\n", SIZE_PSEUDO);
+    }
+    else if(verif == 3) {
+      puts("Le pseudo ne doit pas contenir d'espace, réessayez :");
+    }
+  }
+  while(verif != 0);
 }
 
 /**
@@ -155,20 +221,8 @@ void* cleaner() {
 void* receiveFileProcess(void * parametres){
   struct fileStruct * f = (struct fileStruct *) parametres;
 
-  //Création du socket
-  int dSF = socket(PF_INET, SOCK_STREAM, 0);
-  if(dSF == -1) {
-    perror("Erreur socket dSF");exit(1);
-  }
-
-  struct sockaddr_in aS;
-  aS.sin_family = AF_INET;
-  inet_pton(AF_INET, ip, &(aS.sin_addr));
-  aS.sin_port = htons(port_file);
-  socklen_t lgA = sizeof(struct sockaddr_in);
-  if(-1 == connect(dSF, (struct sockaddr *) &aS, lgA)) {
-    perror("Erreur connect dSF");exit(1);
-  }
+  //Création de la socket
+  int dSF = createSocket(ip, port_file);
 
   char m[SIZE_MESSAGE];
   //On attends la confirmation de connexion au serveur
@@ -472,8 +526,9 @@ void pereSend(int dS) {
   char m[SIZE_MESSAGE];
   int s = 1;
   do {
-    fgets(m, SIZE_MESSAGE, stdin);
-    
+    fgets(m, SIZE_MESSAGE-1, stdin);
+    m[SIZE_MESSAGE-1] = '\0';
+
     if(strlen(m) > 1) {
       //Commande pour envoyer un fichier client dans le serveur
       if(strcmp(m, "@sendfile\n") == 0){
@@ -484,7 +539,7 @@ void pereSend(int dS) {
         receiveFile(m);
       }
       else{
-        s = send(dS, m, strlen(m)+1, 0);
+        s = sendMessage(dS, m, "Erreur send pere");
         if(-1 == s) {
           perror("Erreur send");exit(1);
         }
@@ -521,6 +576,37 @@ void filsRecv(int dS) {
   } while(fini != 1);
 }
 
+/**
+ * @brief Une fois le client correctement connecté et login, on initalise ce dont on aura besoin,
+ * et lance les parties gérant les envoies et les réceptions
+ * 
+ * @param dS 
+ */
+void launchClient(int dS) {
+  thread_files = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
+  tabIndexThreadFile = (int*)malloc(MAX_FILES*sizeof(int));
+  for(int i=0; i<MAX_FILES; i++) {
+    tabIndexThreadFile[i] = 1;
+  }
+
+  pid_t pid;
+  // Fork pour que l'un gère l'envoie, l'autre la réception
+  pid = fork();
+  if (pid != 0) { // PERE
+    signal(SIGINT, arret);
+    pereSend(dS);
+    kill(pid, SIGINT);
+    stopClient(dS);
+    exit(EXIT_SUCCESS);
+  }
+  else { // FILS
+    filsRecv(dS);
+    stopClient(dS);
+    kill(getppid(), SIGINT);
+    exit(EXIT_SUCCESS);
+  }
+}
+
 int main(int argc, char *argv[]) {
 
   if(argc != 3){
@@ -533,45 +619,18 @@ int main(int argc, char *argv[]) {
   port_file = port + 100;
 
   //Création du client
-  dS = socket(PF_INET, SOCK_STREAM, 0);
-  if(dS == -1) {
-    perror("Erreur socket");exit(1);
-  }
-  puts("Socket Créé");
-  puts("Connexion en cours");
-
-  struct sockaddr_in aS;
-  aS.sin_family = AF_INET;
-  inet_pton(AF_INET, ip, &(aS.sin_addr));
-  aS.sin_port = htons(port);
-  socklen_t lgA = sizeof(struct sockaddr_in);
-  if(-1 == connect(dS, (struct sockaddr *) &aS, lgA)) {
-    perror("Erreur connect");exit(1);
-  }
+  dS = createSocket(ip, port);
 
   char m[SIZE_MESSAGE];
 
   //On attends la confirmation de connexion au serveur
-  if(-1 == recv(dS, m, sizeof(char)*SIZE_MESSAGE, 0)) {
-    perror("Erreur connexion au serveur");exit(1);
-  }
+  recvMessage(dS, m, "Erreur connexion au serveur");
 
   if(strcmp(m, "OK") == 0) {
     puts("Connexion réussie");
 
     // Choix du pseudo
-    int verif = 0;
-    do {
-      puts("Choisissez un pseudo :");
-      fgets(m, SIZE_MESSAGE, stdin);
-    
-      verif = verifPseudo(m);
-      if(verif == 0) {
-        puts("Le pseudo ne doit pas contenir d'espace, réessayez :");
-      }
-    }
-    while(verif == 0);
-    
+    choosePseudo(m);
     sendMessage(dS, m, "Erreur send Pseudo");
     recvMessage(dS, m, "Erreur recv Pseudo");
 
@@ -579,28 +638,7 @@ int main(int argc, char *argv[]) {
     if(strcmp(m, "OK") == 0) {
       puts("Login réussi");
 
-      thread_files = (pthread_t*)malloc(MAX_FILES*sizeof(pthread_t));
-      tabIndexThreadFile = (int*)malloc(MAX_FILES*sizeof(int));
-      for(int i=0; i<MAX_FILES; i++) {
-        tabIndexThreadFile[i] = 1;
-      }
-
-      pid_t pid;
-      // Fork pour que l'un gère l'envoie, l'autre la réception
-      pid = fork();
-      if (pid != 0) { // PERE
-        signal(SIGINT, arret);
-        pereSend(dS);
-        kill(pid, SIGINT);
-        stopClient(dS);
-        exit(EXIT_SUCCESS);
-      }
-      else { // FILS
-        filsRecv(dS);
-        stopClient(dS);
-        kill(getppid(), SIGINT);
-        exit(EXIT_SUCCESS);
-      }
+      launchClient(dS);
     }
     else if(strcmp(m, "PseudoTaken") == 0) {
       puts("Ce pseudo est déjà pris");

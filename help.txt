@@ -4,7 +4,7 @@ Liste des commandes :
 @a | all : liste des clients
 @d | disconnect : déconnexion
 @mp | @dm (exemple @mp User Message) : message privé
-@sendfile : envoie un fichier au serveur
 @serveurfiles : liste les fichiers disponibles sur le serveur
-@sf nomfichier : récupération du fichier demandé
+@sendfile : envoie un fichier au serveur
+@rcvf nomfichier : récupération du fichier demandé
 @channels : liste des channels disponibles
