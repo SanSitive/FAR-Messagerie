@@ -74,19 +74,7 @@ struct fileStruct {
  */
 int sendMessage(int dS, char msg[], char erreur[]) {
   int r = 0;
-  /*int size = strlen(msg)+1;
-  for(int i = size; i<SIZE_MESSAGE; i++) {
-    msg[i] = 0;
-  }*/
   if((r = send(dS, msg, SIZE_MESSAGE, 0)) == -1 ) {
-    perror(erreur);exit(1);
-  }
-  return r;
-}
-int sendConstantMessage(int dS, char msg[], char erreur[]) {
-  int r = 0;
-  int size = strlen(msg)+1;
-  if((r = send(dS, msg, size, 0)) == -1 ) {
     perror(erreur);exit(1);
   }
   return r;
@@ -144,7 +132,7 @@ void stopServeur(int dS) {
   pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
-      sendConstantMessage(clients[i]->dSC, "@shutdown", "Erreur send shutdown");
+      sendMessage(clients[i]->dSC, "@shutdown", "Erreur send shutdown");
       if(clients[i]->pseudo != NULL)
         free(clients[i]->pseudo);
       free(clients[i]);
@@ -239,14 +227,14 @@ int login(int dSC, struct clientStruct * p) {
 
   // Réponse au client
   if(res == 1) {
-    sendConstantMessage(dSC, "OK", "Erreur send login");
+    sendMessage(dSC, "OK", "Erreur send login");
     pthread_mutex_lock(&mutex_clients);
     p->pseudo = (char*)malloc(sizeof(char)*strlen(msg)+1);
     strcpy(p->pseudo, msg);
     pthread_mutex_unlock(&mutex_clients);
   }
   else {
-    sendConstantMessage(dSC, "PseudoTaken", "Erreur send PseudoTaken");
+    sendMessage(dSC, "PseudoTaken", "Erreur send PseudoTaken");
   }
 
   return res;
@@ -270,7 +258,6 @@ void clientToAll(struct clientStruct* p, char msg[]) {
   int toSend = sizeMsg;
   int nbSend = 0;
   //Tant qu'on a pas envoyé le message en entier
-  //(Plus le pseudo est grand, plus le nombre de boucle nécessaire sera importante)
   while(toSend > nbSend) {
     char msgToSend[SIZE_MESSAGE];
     strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
@@ -299,8 +286,6 @@ void clientToAll(struct clientStruct* p, char msg[]) {
     }
     pthread_mutex_unlock(&mutex_clients);
   }
-
-  // MP ASUSSI  :DECOUPE EN DEUX CON DE TOI
 
   pthread_mutex_unlock(&mutex_clients);
 }
@@ -451,12 +436,17 @@ void dm(struct clientStruct* p, char msg[]) {
 
   //On cherche le pseudo dans la liste des pseudos existants 
   pthread_mutex_lock(&mutex_clients);
-  int found = 0;
+  int error = 1;
 
   //Si le client s'envoie un message à lui même
   if(strcmp(p->pseudo, pseudo) == 0){
-          found = 2;
-  }else{
+    error = 2;
+  }
+  //Si la taille du message en comptant le pseudo est trop grande
+  else if(strlen(p->pseudo) + strlen(" (mp) : ") + strlen(message) > SIZE_MESSAGE) {
+    error = 3;
+  }
+  else{
     for(int i=0; i<MAX_CLIENTS; i++) {
       if(clients[i] != NULL) { //On vérifie que le client existe
         if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
@@ -466,7 +456,7 @@ void dm(struct clientStruct* p, char msg[]) {
             strcat(msgComplet, " (mp) : ");
             strcat(msgComplet, message);
             sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
-            found = 1;
+            error = 0;
             break;
           }
         }
@@ -474,10 +464,13 @@ void dm(struct clientStruct* p, char msg[]) {
     }
   }
   //Si le pseudo n'appartient à personne
-  if(found == 0) {
-    sendConstantMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
-  }else if(found == 2){
-    sendConstantMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
+  if(error == 1) {
+    sendMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
+  }else if(error == 2){
+    sendMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
+  }
+  else if(error == 3) {
+    sendMessage(p->dSC, "La taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
   }
 
   pthread_mutex_unlock(&mutex_clients);
@@ -535,7 +528,7 @@ void filesServeur(int dSC){
 /**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
- * @param parametres 
+ * @param parametres Struct clientStruct
  * @return void* 
  */
 void* client(void * parametres) {
@@ -584,7 +577,7 @@ void* client(void * parametres) {
           filesServeur(dSC);
         }
         else {
-          sendConstantMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
+          sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
         }
       }
     } while(continu == 1);
@@ -625,12 +618,12 @@ void fileToServer(struct fileStruct * f){
   char path[SIZE_MESSAGE] = "./download_server/";
   strcat(path, msg);
   //Vérifier que le fichier existe pas déjà
-  sendConstantMessage(f->dSF, "OK", "Erreur confirm filename");
+  sendMessage(f->dSF, "OK", "Erreur confirm filename");
   if(1) {
     int size = 0;
     recvMessage(f->dSF, msg, "Erreur recv size");
     size = atoi(msg);
-    sendConstantMessage(f->dSF, "OK", "Erreur confirm size");
+    sendMessage(f->dSF, "OK", "Erreur confirm size");
 
     char buffer[size];
     strcpy(buffer, "");
@@ -648,7 +641,7 @@ void fileToServer(struct fileStruct * f){
         data[sizeToGet] = '\0';
         dataTotal += dataGet;
         strcat(buffer, data);
-        sendConstantMessage(f->dSF, "OK", "Erreur file confirm data");
+        sendMessage(f->dSF, "OK", "Erreur file confirm data");
       }
     } while(sizeToGet > 0);
 
@@ -684,7 +677,7 @@ void fileToClient(struct fileStruct * f){
 
   pthread_mutex_unlock(&mutex_file);
 
-  sendConstantMessage(f->dSF,"OK", "Erreur confirm file name to client");
+  sendMessage(f->dSF,"OK", "Erreur confirm file name to client");
   
   //On attends le READY
   recvMessage(f->dSF, m, "Erreur receive READY");
@@ -711,7 +704,7 @@ void fileToClient(struct fileStruct * f){
         }
         recvMessage(f->dSF, m, "Erreur recv file OK");
       }
-      sendConstantMessage(f->dSF, "END", "Erreur send file end");
+      sendMessage(f->dSF, "END", "Erreur send file end");
       /*else { // error handling
         if (feof(fp))
             printf("Error reading test.bin: unexpected end of file\n");
@@ -725,6 +718,12 @@ void fileToClient(struct fileStruct * f){
   }
 }
 
+/**
+ * @brief Thread lié à une demande de téléchargement d'un fichier
+ * 
+ * @param parametres Struct fileStruct
+ * @return void* 
+ */
 void* file(void * parametres) {
   struct fileStruct* f = (struct fileStruct *) parametres;
 
@@ -732,7 +731,7 @@ void* file(void * parametres) {
   //On attend de savoir quelle action on doit faire : RCV ou SEND
   recvMessage(f->dSF, msg, "Erreur recv protocol");
   //On envoie qu'on a bien reçu l'action
-  sendConstantMessage(f->dSF, "OK", "Erreur send ok for protocol");
+  sendMessage(f->dSF, "OK", "Erreur send ok for protocol");
 
   if(strcmp(msg, "SEND") == 0){
     fileToServer(f);
@@ -753,13 +752,13 @@ void* file(void * parametres) {
 }
 
 /**
- * @brief Trouve la première place libre dans le tableau, -1 si une place n'a pas été trouvée
+ * @brief Trouve la première place libre dans la liste des clients, -1 si une place n'a pas été trouvée
  * 
  * @param tab 
  * @param taille 
- * @return int 
+ * @return index dans le tableau de la place disponible, -1 si aucune place n'est disponible
  */
-int getEmptyPosition(struct clientStruct * tab[], int taille) {
+int getEmptyPositionClient(struct clientStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
     if(tab[i] == NULL) {
@@ -769,6 +768,13 @@ int getEmptyPosition(struct clientStruct * tab[], int taille) {
   }
   return p;
 }
+/**
+ * @brief Trouve la première place libre dans la liste des fichiers, -1 si une place n'a pas été trouvée
+ * 
+ * @param tab 
+ * @param taille 
+ * @return index dans le tableau de la place disponible, -1 si aucune place n'est disponible
+ */
 int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
@@ -833,6 +839,11 @@ void* cleaner(){
   }
 }
 
+/**
+ * @brief Ajoute une socket liée au fichier dans la liste et lance le thread file associé
+ * 
+ * @param dSF 
+ */
 void addFileSocket(int dSF) {
   struct fileStruct * self = (struct fileStruct*) malloc(sizeof(struct fileStruct));
   self->dSF = dSF;
@@ -842,7 +853,7 @@ void addFileSocket(int dSF) {
   self->numero = getEmptyPositionFile(files, MAX_FILES);
 
   files[self->numero] = self;
-  sendConstantMessage(dSF, "OK", "Erreur send connexion File");
+  sendMessage(dSF, "OK", "Erreur send connexion File");
 
   pthread_create(&thread_files[self->numero], NULL, file, (void*)self);
   puts("Demande File Ajouté");
@@ -859,11 +870,11 @@ void addClientSocket(int dSC) {
   struct clientStruct * self = (struct clientStruct*) malloc(sizeof(struct clientStruct));
   self->dSC = dSC;
   self->pseudo = NULL; // Pas encore connecté
-  self->numero = getEmptyPosition(clients, MAX_CLIENTS);
+  self->numero = getEmptyPositionClient(clients, MAX_CLIENTS);
 
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
-  sendConstantMessage(dSC, "OK", "Erreur send connexion");
+  sendMessage(dSC, "OK", "Erreur send connexion");
 
   pthread_mutex_lock(&mutex_thread);
   pthread_create(&thread[self->numero], NULL, client, (void*)self);
@@ -873,8 +884,12 @@ void addClientSocket(int dSC) {
   puts("Client Ajouté");
 }
 
+/**
+ * @brief Boucle infinie attendant de nouvelles demandes liées aux fichiers
+ * 
+ * @return void* 
+ */
 void* acceptFiles() {
-  // On attend une nouvelle demande de téléchargement de fichiers
   while(1) {
     // Tant que le nombre max de files n'est pas atteint, on va attendre une connexion
     if(sem_wait(&sem_place_files) == 1) {
@@ -893,10 +908,33 @@ void* acceptFiles() {
   pthread_exit(0);
 }
 
-void* acceptClients() {
-  pthread_exit(0);
+/**
+ * @brief Boucle infinie attendant de nouveaux clients
+ * 
+ */
+void acceptClients() {
+  while(1) {
+    // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
+    if(sem_wait(&sem_place) == 1) {
+      perror("Erreur wait sémaphore");exit(1);
+    }
+    struct sockaddr_in aC ;
+    socklen_t lg = sizeof(struct sockaddr_in);
+    int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
+    if(dSC == -1) {
+      perror("Erreur accept");exit(1);
+    }
+
+    // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
+    addClientSocket(dSC);
+  }
 }
 
+/**
+ * @brief Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer les demandes liées aux fichiers
+ * 
+ * @param port Port sur lequel les sockets vont se connecter
+ */
 void initFiles(int port_file) {
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place_files, 0, MAX_FILES) == 1){
@@ -918,6 +956,11 @@ void initFiles(int port_file) {
   pthread_create(&thread_cleaner_files, NULL, cleanerFiles, NULL);
 }
 
+/**
+ * @brief Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer la connexion de clients
+ * 
+ * @param port Port sur lequel les sockets vont se connecter
+ */
 void initClients(int port) {
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place, 0, MAX_CLIENTS) == 1){
@@ -962,23 +1005,7 @@ int main(int argc, char *argv[]) {
 
   // CTRL-C
   signal(SIGINT, arret);
-
-  // On attend qu'un nouveau client veuille se connecter
-  while(1) {
-    // Tant que le nombre max de clients n'est pas atteint, on va attendre une connexion
-    if(sem_wait(&sem_place) == 1) {
-      perror("Erreur wait sémaphore");exit(1);
-    }
-    struct sockaddr_in aC ;
-    socklen_t lg = sizeof(struct sockaddr_in);
-    int dSC = accept(dS, (struct sockaddr*)&aC,&lg) ;
-    if(dSC == -1) {
-      perror("Erreur accept");exit(1);
-    }
-
-    // On lance un thread pour chaque client, avec sa socket, son numéro de client, et la liste des clients
-    addClientSocket(dSC);
-  }
+  acceptClients();
 
   stopServeur(dS);
   exit(EXIT_SUCCESS);
