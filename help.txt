@@ -7,3 +7,4 @@ Liste des commandes :
 @sendfile : envoie un fichier au serveur
 @serveurfiles : liste les fichiers disponibles sur le serveur
 @sf nomfichier : récupération du fichier demandé
+@channels : liste des channels disponibles

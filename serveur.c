@@ -18,6 +18,8 @@
 #define MAX_CLIENTS 5
 #define MAX_FILES 3
 #define SIZE_MESSAGE 256
+#define MAX_CHANNEL 10
+#define MAX_CLIENTS_CHANNEL 10
 
 int dS;
 int dSFile;
@@ -42,8 +44,25 @@ struct clientStruct {
   int dSC; //Socket
   char * pseudo;
   int numero; //Index dans le tableau de clients
+  struct channelStruct * channel;
 };
 //---END CLIENTS-----------------------------------------------------------//
+
+//---START CHANNELS--------------------------------------------------------//
+// Structure d'un salon, stocké dans le tableaux des clients (chaque clients appartient à un salon)
+struct channelStruct ** channels; //Liste des channels
+sem_t sem_place_channels;         //Sémaphore indiquant si le nombre de channel créable possible
+pthread_mutex_t mutex_channel_file;
+pthread_mutex_t mutex_channel_place;
+
+struct channelStruct {
+  int capacity; //Nombre max de client dans un channel 
+  int count; //Nombre actuel de client dans le channel
+  char * description;
+  char * name; //Le nom du channel grace auquel on peut s'y connecter
+  int numero; //Index dans le tableau des channels
+};
+//---END CHANNELS----------------------------------------------------------//
 
 
 //---START FILES-----------------------------------------------------------//
@@ -119,6 +138,28 @@ void stopServeur(int dS) {
     }
   }
   free(files);
+  //A RAJOUTER : la save des channels dans le fichier channel.txt avant le free
+  pthread_mutex_lock(&mutex_channel_place);
+  for(int i=0; i<MAX_CHANNEL; i++) {
+    if(channels[i] != NULL) {
+      printf("P1 : i =%d\n",i);
+      if(channels[i]->name != NULL && channels[i]->description != NULL){
+        printf("P2 : i =%d\n",i);
+        printf("Name : %s\n",channels[i]->name);
+        free(channels[i]->name);
+      }
+      if(channels[i]->description != NULL){
+        printf("P3 : i =%d\n",i);
+        printf("Description : %s\n",channels[i]->description);
+        free(channels[i]->description);
+      }
+      printf("P4 : i =%d\n",i);
+      free(channels[i]);
+    }
+  }
+  printf("P5\n");
+  free(channels);
+  pthread_mutex_unlock(&mutex_channel_place);
 
   for (int i=0;i<MAX_CLIENTS;i++){
     pthread_cancel(thread[i]);
@@ -462,6 +503,18 @@ void filesServeur(int dSC){
   }
 }
 
+void allChannels(int dSC){
+  
+  pthread_mutex_lock(&mutex_channel_place);
+  for(int i =0; i<MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      //printf("%s\n",channels[i]->name);
+      sendMessage(dSC,channels[i]->name,"Erreur envoi channel");
+    }
+  }
+  pthread_mutex_unlock(&mutex_channel_place);
+}
+
 /**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
@@ -512,6 +565,9 @@ void* client(void * parametres) {
         //Liste des fichiers disponibles dans le serveur
         else if(strcmp(msg, "@serveurfiles") == 0){
           filesServeur(dSC);
+        }
+        else if(strcmp(msg,"@channels") == 0){
+          allChannels(dSC);
         }
         else {
           char erreur[SIZE_MESSAGE] = "Cette commande n'existe pas";
@@ -710,6 +766,16 @@ int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
   }
   return p;
 }
+int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
+  int p = -1;
+  for(int i=0; i<taille; i++) {
+    if(tab[i] == NULL) {
+      p = i;
+      break;
+    }
+  }
+  return p;
+}
 
 void* cleanerFiles() {
   while(1) {
@@ -792,7 +858,10 @@ void ajoutClient(int dSC) {
   self->dSC = dSC;
   self->pseudo = NULL; // Pas encore connecté
   self->numero = getEmptyPosition(clients, MAX_CLIENTS);
-
+  pthread_mutex_lock(&mutex_channel_place);
+  self->channel = channels[0];
+  pthread_mutex_unlock(&mutex_channel_place);
+  printf("Le channel du client est %s\n",self->channel->name);
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
   char connexion[20] = "OK";
@@ -828,6 +897,92 @@ void* acceptFiles() {
 
 void* acceptClients() {
   pthread_exit(0);
+}
+
+void initChannels() {
+  //On initialise le sémaphore indiquant le nombre de place restante
+  if(sem_init(&sem_place_channels, 0, MAX_CHANNEL) == 1){
+    perror("Erreur init sémaphore nb_place_channel");exit(1);
+  }
+
+  // Liste qui contiendra les informations des clients
+  channels = (struct channelStruct**)malloc(MAX_CHANNEL*sizeof(struct channelStruct *));
+  for(int i=0; i<MAX_CHANNEL; i++) {
+    channels[i] = NULL;
+  }
+
+  pthread_mutex_lock(&mutex_channel_file);
+  pthread_mutex_lock(&mutex_channel_place);
+  FILE *fileSource;
+  fileSource = fopen("channel.txt", "r");
+
+  char ch;
+  char *chan = malloc(SIZE_MESSAGE*sizeof(char));
+  int count = 0;
+  int END = 0;
+  while( (( ch = fgetc(fileSource) ) != EOF) &&  END == 0 ){
+    strncat(chan,&ch,1);
+    count++;
+
+    if(strcmp(chan,"END") == 0){
+      strcpy(chan,"");
+      count = 0;
+      END = 1;
+    }else if(ch == '\n' || count == 255){
+      
+      //On remplace le dernier caractère par un \0
+      if(ch == '\n'){
+        chan[count-1] = '\0';
+      }
+      
+      //Début instanciation du salon
+      struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
+      self->capacity = MAX_CLIENTS_CHANNEL;
+      self->count = 0;
+      self->name = malloc((strlen(chan)+1)*sizeof(char));
+      strcpy(self->name,chan);
+      //self->name[(int)strlen(chan)] = '\0';
+      
+      char *temp = "Description générique pour l'instant";
+      self->description = malloc((strlen(temp)+1)*sizeof(char));
+      strcpy(self->description,"Description générique pour l'instant");
+      //self->description[(int)strlen(temp)] = '\0';
+      self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
+      
+      channels[self->numero] = self;
+      //Fin d'instanciation du salon
+      strcpy(chan,"");
+      count = 0;
+    }
+  }
+  //On met la capacité du channel général = au max de clients
+  for(int i=0; i<MAX_CHANNEL; i++){
+    printf("%d\n",i);
+    if(channels[i] != NULL){
+      char temp[8];
+      for(int j = 0; j<7; j++){
+        temp[j] = channels[i]->name[j];
+      }
+      if(strcmp(temp,"General") == 0){
+        channels[i]->description = "Le channel général";
+        channels[i]->capacity = MAX_CLIENTS;
+      }
+    }
+  }
+  for(int j=0; j<MAX_CHANNEL; j++){
+    if(channels[j] != NULL){
+      printf("Le nom du salon est : %s\n",channels[j]->name);
+      printf("La description du salon est : %s\n",channels[j]->description);
+      printf("Le nombre maximum de clients est : %d\n",channels[j]->capacity);
+      printf("Le nombre actuel de personne occupant le salon est : %d\n",channels[j]->count);
+      printf("-------------------------------------------------------------------------------\n");
+    }
+  }
+  free(chan);
+  fclose(fileSource);
+  pthread_mutex_unlock(&mutex_channel_file);
+  pthread_mutex_unlock(&mutex_channel_place);
+
 }
 
 void initFiles(int port_file) {
@@ -924,6 +1079,7 @@ int main(int argc, char *argv[]) {
   const int port_file = port + 100;
   initFiles(port_file);
   initClients(port);
+  initChannels();
 
   pthread_create(&file_manager, NULL, acceptFiles, NULL);
 
