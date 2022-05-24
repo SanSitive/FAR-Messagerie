@@ -1014,9 +1014,8 @@ void addClientSocket(int dSC) {
   self->pseudo = NULL; // Pas encore connecté
   self->numero = getEmptyPositionClient(clients, MAX_CLIENTS);
   pthread_mutex_lock(&mutex_channel_place);
-  self->channel = channels[0];
+  self->channel = NULL;
   pthread_mutex_unlock(&mutex_channel_place);
-  printf("Le channel du client est %s\n",self->channel->name);
 
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
@@ -1136,19 +1135,6 @@ void initChannels() {
         //Fin d'instanciation du salon
         strcpy(chan,"");
         count = 0;
-      }
-    }
-    //On met la capacité du channel général = au max de clients
-    for(int i=0; i<MAX_CHANNEL; i++){
-      if(channels[i] != NULL){
-        char temp[8];
-        for(int j = 0; j<7; j++){
-          temp[j] = channels[i]->name[j];
-        }
-        if(strcmp(temp,"General") == 0){
-          strcpy(channels[i]->description,"Le channel général");
-          channels[i]->capacity = MAX_CLIENTS;
-        }
       }
     }
     fclose(fileSource);
