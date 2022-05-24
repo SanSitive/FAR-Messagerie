@@ -371,29 +371,38 @@ void help(int dSC) {
   FILE *fileSource;
   fileSource = fopen("help.txt", "r");
 
-  char ch;
-  char help[SIZE_MESSAGE];
-  int count = 0;
-  while( ( ch = fgetc(fileSource) ) != EOF ){
-    strncat(help,&ch,1);
-    count++;
-    if(ch == '\n' || count == 255){
-      
-      //On remplace le dernier caractère par un \0
-      if(ch == '\n'){
-        help[count - 1] = '\0';
-      }else{
-        help[count] = '\0';
-      }
-      
-      sendMessage(dSC, help, "");
-      strcpy(help,"");
-      count = 0;
+  //Gestion erreur fopen 
+  if (fileSource == NULL){
+    //On averti le client
+    sendMessage(dSC, "Erreur de la commande help, veuillez réessayer.", "Erreur sending erreur with fopen");
+  }else{ //pas d'erreur
+    char ch;
+    char help[SIZE_MESSAGE];
+    //On vide le help (erreur nouvelle)
+    for (size_t i = 0; i < SIZE_MESSAGE; i++){
+      help[i]=0;
     }
-  }
-  if(count > 0){
-    help[count] = '\0';
-    sendMessage(dSC, help, "");
+    int count = 0;
+    while( ( ch = fgetc(fileSource) ) != EOF ){
+      strncat(help,&ch,1);
+      count++;
+      if(ch == '\n' || count == 255){
+        
+        //On remplace le dernier caractère par un \0
+        if(ch == '\n'){
+          help[count - 1] = '\0';
+        }else{
+          help[count] = '\0';
+        }
+        sendMessage(dSC, help, "");
+        strcpy(help,"");
+        count = 0;
+      }
+    }
+    if(count > 0){
+      help[count] = '\0';
+      sendMessage(dSC, help, "");
+    }
   }
   fclose(fileSource);
   pthread_mutex_unlock(&mutex_help);
@@ -571,6 +580,60 @@ void allChannels(int dSC){
 }
 
 /**
+ * @brief Fonction qui permet au client de rejoindre un channel
+ * 
+ * @param p 
+ * @param msg 
+ */
+void joinChannel(struct clientStruct* p, char msg[]){
+  //On créer une place pour le nom du channel que l'on veut rejoindre
+  int tailleC= strlen(msg) - 4 + 1;
+  char *nomChannel = (char*)malloc(tailleC);
+  strncpy(nomChannel, msg + 4, tailleC);
+
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //On cherche dans la liste des channels, le channel que l'utilisateur a demandé
+  for (int i = 0; i < MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      if (strcmp(channels[i]->name, nomChannel) == 0){
+        //On change le channel actuel du client
+        p->channel = channels[i];
+        sendMessage(p->dSC, "Channel rejoint !\n", "Erreur sending join channel");
+        break;
+      }
+    } 
+  }
+
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
+
+  free(nomChannel);
+}
+
+/**
+ * @brief Fonction qui permet au client de sortir du channel où il se situe
+ * 
+ * @param p 
+ */
+void disconnectChannel(struct clientStruct* p){
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //Si le client est dans aucun channel
+  if (p->channel == NULL){
+    sendMessage(p->dSC, "Vous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
+  }else{
+    p->channel = NULL;
+    sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
+  }
+  
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
+}
+
+/**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
  * @param parametres Struct clientStruct
@@ -601,6 +664,7 @@ void* client(void * parametres) {
       // Commandes
       else {
         transformCommand(msg);
+        puts(msg);
         //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
@@ -623,6 +687,12 @@ void* client(void * parametres) {
         }
         else if(strcmp(msg,"@channels") == 0){
           allChannels(dSC);
+        }
+        else if ((msg[1] == 'j' && msg[2] == 'c') && isblank(msg[3])>0 ){
+          joinChannel(p, msg);
+        }
+        else if(strcmp(msg,"@dchannel") == 0){
+          disconnectChannel(p);
         }
         else {
           sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
@@ -673,32 +743,42 @@ void fileToServer(struct fileStruct * f){
     size = atoi(msg);
     sendMessage(f->dSF, "OK", "Erreur confirm size");
 
-    char buffer[size];
-    strcpy(buffer, "");
+    recvMessage(f->dSF,msg,"Erreur recv open ok");
+    //On a bien réussi à ouvrir le fichier
+    if(strcmp(msg, "OK") == 0){
+      char buffer[size];
+      strcpy(buffer, "");
 
-    int dataTotal = 0;
-    int sizeToGet = size;
-    do {
-      sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
-      if(sizeToGet > 0) {
-        char data[sizeToGet+1];
-        int dataGet = recv(f->dSF, data, sizeof(char)*sizeToGet, 0);
-        if(dataGet == -1) {
-          perror("Erreur recv file data");exit(1);
+      int dataTotal = 0;
+      int sizeToGet = size;
+      do {
+        sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
+        if(sizeToGet > 0) {
+          char data[sizeToGet+1];
+          int dataGet = recv(f->dSF, data, sizeof(char)*sizeToGet, 0);
+          if(dataGet == -1) {
+            perror("Erreur recv file data");exit(1);
+          }
+          data[sizeToGet] = '\0';
+          dataTotal += dataGet;
+          strcat(buffer, data);
+          sendMessage(f->dSF, "OK", "Erreur file confirm data");
         }
-        data[sizeToGet] = '\0';
-        dataTotal += dataGet;
-        strcat(buffer, data);
-        sendMessage(f->dSF, "OK", "Erreur file confirm data");
-      }
-    } while(sizeToGet > 0);
+      } while(sizeToGet > 0);
 
-    recvMessage(f->dSF, msg, "Erreur recv file END");
-    if(strcmp(msg, "END") == 0) {
-      // Enregistrer le fichier :
-      FILE *fp = fopen(path, "wb"); // must use binary mode
-      fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
-      fclose(fp);
+      recvMessage(f->dSF, msg, "Erreur recv file END");
+      if(strcmp(msg, "END") == 0) {
+        // Enregistrer le fichier :
+        FILE *fp = fopen(path, "wb"); // must use binary mode
+        //Gestion erreur fopen 
+        if (fp == NULL){
+          //On averti le client
+          sendMessage(f->dSF, "Erreur d'enregistrement de votre fichier sur le serveur. Veuillez réessayer.", "Erreur sending erreur with fopen");
+        }else{ //pas d'erreur
+          fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
+        }
+        fclose(fp);
+      }
     }
   }
 }
@@ -718,52 +798,56 @@ void fileToClient(struct fileStruct * f){
   struct stat st;
   char path[SIZE_MESSAGE] = "./download_server/";
   strcat(path, m);
-  stat(path, &st);
-  int size = st.st_size;
-  char sizeString[10];
-  sprintf(sizeString, "%d", size);
-
-  pthread_mutex_unlock(&mutex_file);
-
-  sendMessage(f->dSF,"OK", "Erreur confirm file name to client");
   
-  //On attends le READY
-  recvMessage(f->dSF, m, "Erreur receive READY");
+  if (stat(path, &st) == -1){
+    sendMessage(f->dSF,"FileNotExists", "Erreur sending error size");
+  }else{
+    int size = st.st_size;
+    char sizeString[10];
+    sprintf(sizeString, "%d", size);
 
-  if(strcmp(m, "READY") == 0) {
-    //On envoie la taille du fichier demandé
-    sendMessage(f->dSF, sizeString, "Erreur send size");
-    //On attend la confirmation du serveur
-    recvMessage(f->dSF, m, "Erreur file protocol");
+    pthread_mutex_unlock(&mutex_file);
 
-    if(strcmp(m, "OK") == 0){
-      pthread_mutex_lock(&mutex_file);
-      FILE * fp = fopen(path, "rb");
-      int dataSent = 0;
-      
-      while(dataSent < size && strcmp(m, "OK") == 0) {
-        int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
-        char data[sizeToGet];
-        dataSent += fread(data, sizeof(char), sizeToGet, fp);
+    sendMessage(f->dSF,"OK", "Erreur confirm file name to client");
+    
+    //On attends le READY
+    recvMessage(f->dSF, m, "Erreur receive READY");
 
-        int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
-        if(sent == -1 ) {
-          perror("Erreur send data file");exit(1);
+    if(strcmp(m, "READY") == 0) {
+      //On envoie la taille du fichier demandé
+      sendMessage(f->dSF, sizeString, "Erreur send size");
+      //On attend la confirmation du serveur
+      recvMessage(f->dSF, m, "Erreur file protocol");
+
+      if(strcmp(m, "OK") == 0){
+        pthread_mutex_lock(&mutex_file);
+        FILE * fp = fopen(path, "rb");
+        int dataSent = 0;
+        
+        //Gestion erreur fopen 
+        if (fp == NULL){
+          //On averti le client
+          sendMessage(f->dSF, "ERR", "Erreur sending erreur with fopen");
+        }else{
+          sendMessage(f->dSF, "OK", "Erreur sending ok with fopen");
+          while(dataSent < size && strcmp(m, "OK") == 0) {
+            int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+            char data[sizeToGet];
+            dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+            int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
+            if(sent == -1 ) {
+              perror("Erreur send data file");exit(1);
+            }
+            recvMessage(f->dSF, m, "Erreur recv file OK");
+          }
+          sendMessage(f->dSF, "END", "Erreur send file end");
         }
-        recvMessage(f->dSF, m, "Erreur recv file OK");
-      }
-      sendMessage(f->dSF, "END", "Erreur send file end");
-      /*else { // error handling
-        if (feof(fp))
-            printf("Error reading test.bin: unexpected end of file\n");
-        else if (ferror(fp)) {
-            perror("Error reading test.bin");
-        }
-      }*/
-      fclose(fp);
-      pthread_mutex_unlock(&mutex_file);
-    }  
+        fclose(fp);
+      }  
+    }
   }
+  pthread_mutex_unlock(&mutex_file);
 }
 
 /**
@@ -1009,61 +1093,68 @@ void initChannels() {
   FILE *fileSource;
   fileSource = fopen("channel.txt", "r");
 
-  char ch;
-  char chan[SIZE_MESSAGE];
-  int count = 0;
-  int END = 0;
-  while( (( ch = fgetc(fileSource) ) != EOF) &&  END == 0 ){
-    strncat(chan,&ch,1);
-    count++;
+  //Gestion erreur fopen 
+  if (fileSource == NULL){
+    //On averti le client ? On redemarre le serveur ? fonction dans main
+    fclose(fileSource);
+    pthread_mutex_unlock(&mutex_channel_file);
+    pthread_mutex_unlock(&mutex_channel_place);
+  }else{ //pas d'erreur
+    char ch;
+    char chan[SIZE_MESSAGE];
+    int count = 0;
+    int END = 0;
+    while( (( ch = fgetc(fileSource) ) != EOF) &&  END == 0 ){
+      strncat(chan,&ch,1);
+      count++;
 
-    if(strcmp(chan,"END") == 0){
-      strcpy(chan,"");
-      count = 0;
-      END = 1;
-    }else if(ch == '\n' || count == 255){
-      
-      //On remplace le dernier caractère par un \0
-      if(ch == '\n'){
-        chan[count-1] = '\0';
-      }
-      
-      //Début instanciation du salon
-      struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
-      self->capacity = MAX_CLIENTS_CHANNEL;
-      self->count = 0;
-      self->name = malloc((strlen(chan)+1)*sizeof(char));
-      strcpy(self->name,chan);
-      
-      char *temp = "Description générique pour l'instant";
-      self->description = malloc((strlen(temp)+1)*sizeof(char));
-      strcpy(self->description,"Description générique pour l'instant");
+      if(strcmp(chan,"END") == 0){
+        strcpy(chan,"");
+        count = 0;
+        END = 1;
+      }else if(ch == '\n' || count == 255){
+        
+        //On remplace le dernier caractère par un \0
+        if(ch == '\n'){
+          chan[count-1] = '\0';
+        }
+        
+        //Début instanciation du salon
+        struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
+        self->capacity = MAX_CLIENTS_CHANNEL;
+        self->count = 0;
+        self->name = malloc((strlen(chan)+1)*sizeof(char));
+        strcpy(self->name,chan);
+        
+        char *temp = "Description générique pour l'instant";
+        self->description = malloc((strlen(temp)+1)*sizeof(char));
+        strcpy(self->description,"Description générique pour l'instant");
 
-      self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
-      
-      channels[self->numero] = self;
-      //Fin d'instanciation du salon
-      strcpy(chan,"");
-      count = 0;
-    }
-  }
-  //On met la capacité du channel général = au max de clients
-  for(int i=0; i<MAX_CHANNEL; i++){
-    if(channels[i] != NULL){
-      char temp[8];
-      for(int j = 0; j<7; j++){
-        temp[j] = channels[i]->name[j];
-      }
-      if(strcmp(temp,"General") == 0){
-        strcpy(channels[i]->description,"Le channel général");
-        channels[i]->capacity = MAX_CLIENTS;
+        self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
+        
+        channels[self->numero] = self;
+        //Fin d'instanciation du salon
+        strcpy(chan,"");
+        count = 0;
       }
     }
+    //On met la capacité du channel général = au max de clients
+    for(int i=0; i<MAX_CHANNEL; i++){
+      if(channels[i] != NULL){
+        char temp[8];
+        for(int j = 0; j<7; j++){
+          temp[j] = channels[i]->name[j];
+        }
+        if(strcmp(temp,"General") == 0){
+          strcpy(channels[i]->description,"Le channel général");
+          channels[i]->capacity = MAX_CLIENTS;
+        }
+      }
+    }
+    fclose(fileSource);
+    pthread_mutex_unlock(&mutex_channel_file);
+    pthread_mutex_unlock(&mutex_channel_place);
   }
-  fclose(fileSource);
-  pthread_mutex_unlock(&mutex_channel_file);
-  pthread_mutex_unlock(&mutex_channel_place);
-
 }
 
 /**
