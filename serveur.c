@@ -562,7 +562,9 @@ void allChannels(int dSC){
   pthread_mutex_lock(&mutex_channel_place);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
-      sendMessage(dSC,channels[i]->name,"Erreur envoi channel");
+      char msg[SIZE_MESSAGE];
+      sprintf(msg, "Nombre d'utilisateurs connectés : %d/%d : %s",channels[i]->count,channels[i]->capacity,channels[i]->name);
+      sendMessage(dSC,msg,"Erreur envoi channel");
     }
   }
   pthread_mutex_unlock(&mutex_channel_place);
