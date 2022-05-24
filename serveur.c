@@ -321,8 +321,62 @@ void clientToAll(struct clientStruct* p, char msg[]) {
     pthread_mutex_lock(&mutex_clients);
     for(int i = 0; i<MAX_CLIENTS; i++) {
       if(clients[i] != NULL) {
-        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-          sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+        if(clients[i]->channel == NULL){
+          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+            sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+          }
+        }
+      }
+    }
+    pthread_mutex_unlock(&mutex_clients);
+  }
+
+  pthread_mutex_unlock(&mutex_clients);
+}
+
+/**
+ * @brief Fonction qui va envoyer le message du client aux autres clients présents dans le channel
+ * 
+ * @param p 
+ * @param msg 
+ */
+void clientToChannel(struct clientStruct* p, char msg[]){
+  char msgPseudo[SIZE_MESSAGE];
+  pthread_mutex_lock(&mutex_clients);
+  strcpy(msgPseudo, p->pseudo);
+  pthread_mutex_unlock(&mutex_clients);
+  strcat(msgPseudo, " : ");
+  int sizeMsgPseudo = strlen(msgPseudo);
+  int sizeMsg = strlen(msg) + 1;
+
+  int toSend = sizeMsg;
+  int nbSend = 0;
+  //Tant qu'on a pas envoyé le message en entier
+  while(toSend > nbSend) {
+    char msgToSend[SIZE_MESSAGE];
+    strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
+    msgToSend[sizeMsgPseudo] = '\0';
+    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
+    if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
+      int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
+      strncat(msgToSend, msg+nbSend, sizeToSend);
+      msgToSend[SIZE_MESSAGE-1] = '\0';
+      nbSend += sizeToSend;
+    }
+    //Sinon on peut directement ajouter ce qu'il reste
+    else {
+      strcat(msgToSend, msg+nbSend);
+      nbSend = toSend;
+    }
+    printf("\n%s\n", msgToSend);
+    //On envoie le message aux autres clients
+    pthread_mutex_lock(&mutex_clients);
+    for(int i = 0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) {
+        if (clients[i]->channel == p->channel){
+          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+            sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+          }
         }
       }
     }
@@ -655,9 +709,14 @@ void* client(void * parametres) {
         perror("Erreur recv client");exit(1);
       }
       
-      // Message normal, on envoie aux autres clients
+      // Message normal, on envoie aux autres clients 
       if(msg[0] != '@') {
-        clientToAll(p, msg);
+        //si le client est dans le channel général, on envoie à tout le monde
+        if(p->channel == NULL){
+          clientToAll(p, msg);
+        }else{ //Si le client est dans un channel, on envoie seulement aux membres du channels
+          clientToChannel(p, msg);
+        }
       }
       // Commandes
       else {
