@@ -578,6 +578,60 @@ void allChannels(int dSC){
 }
 
 /**
+ * @brief Fonction qui permet au client de rejoindre un channel
+ * 
+ * @param p 
+ * @param msg 
+ */
+void joinChannel(struct clientStruct* p, char msg[]){
+  //On créer une place pour le nom du channel que l'on veut rejoindre
+  int tailleC= strlen(msg) - 4 + 1;
+  char *nomChannel = (char*)malloc(tailleC);
+  strncpy(nomChannel, msg + 4, tailleC);
+
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //On cherche dans la liste des channels, le channel que l'utilisateur a demandé
+  for (int i = 0; i < MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      if (strcmp(channels[i]->name, nomChannel) == 0){
+        //On change le channel actuel du client
+        p->channel = channels[i];
+        sendMessage(p->dSC, "Channel rejoint !\n", "Erreur sending join channel");
+        break;
+      }
+    } 
+  }
+
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
+
+  free(nomChannel);
+}
+
+/**
+ * @brief Fonction qui permet au client de sortir du channel où il se situe
+ * 
+ * @param p 
+ */
+void disconnectChannel(struct clientStruct* p){
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //Si le client est dans aucun channel
+  if (p->channel == NULL){
+    sendMessage(p->dSC, "Vous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
+  }else{
+    p->channel = NULL;
+    sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
+  }
+  
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
+}
+
+/**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
  * @param parametres Struct clientStruct
@@ -608,6 +662,7 @@ void* client(void * parametres) {
       // Commandes
       else {
         transformCommand(msg);
+        puts(msg);
         //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
@@ -630,6 +685,12 @@ void* client(void * parametres) {
         }
         else if(strcmp(msg,"@channels") == 0){
           allChannels(dSC);
+        }
+        else if ((msg[1] == 'j' && msg[2] == 'c') && isblank(msg[3])>0 ){
+          joinChannel(p, msg);
+        }
+        else if(strcmp(msg,"@dchannel") == 0){
+          disconnectChannel(p);
         }
         else {
           sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
