@@ -52,6 +52,7 @@ struct clientStruct {
 // Structure d'un salon, stocké dans le tableaux des clients (chaque clients appartient à un salon)
 struct channelStruct ** channels; //Liste des channels
 sem_t sem_place_channels;         //Sémaphore indiquant si le nombre de channel créable possible
+int numberOfChannels;
 pthread_mutex_t mutex_channel_file;
 pthread_mutex_t mutex_channel_place;
 
@@ -648,17 +649,27 @@ void joinChannel(struct clientStruct* p, char msg[]){
   pthread_mutex_lock(&mutex_channel_place);
   pthread_mutex_lock(&mutex_clients);
 
+  int found = 0;
   //On cherche dans la liste des channels, le channel que l'utilisateur a demandé
   for (int i = 0; i < MAX_CHANNEL; i++){
     if(channels[i] != NULL){
       if (strcmp(channels[i]->name, nomChannel) == 0){
         //On change le channel actuel du client
+        if(p->channel != NULL){
+          p->channel->count --;
+        }
         p->channel = channels[i];
-        sendMessage(p->dSC, "Channel rejoint !\n", "Erreur sending join channel");
+        p->channel->count ++;
+        sendMessage(p->dSC, "Channel rejoint !", "Erreur sending join channel");
+        found = 1;
         break;
       }
-    } 
+    }
   }
+  if(found != 1){
+    sendMessage(p->dSC,"Ce channel n'existe pas","Erreur sending channel not found");
+  }
+  
 
   pthread_mutex_unlock(&mutex_channel_place);
   pthread_mutex_unlock(&mutex_clients);
@@ -685,6 +696,116 @@ void disconnectChannel(struct clientStruct* p){
   
   pthread_mutex_unlock(&mutex_channel_place);
   pthread_mutex_unlock(&mutex_clients);
+}
+
+int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
+  int p = -1;
+  for(int i=0; i<taille; i++) {
+    if(tab[i] == NULL) {
+      p = i;
+      break;
+    }
+  }
+  return p;
+}
+
+void addChannel(char msg[]){
+  //On créer une place pour le message et le pseudo
+  //int taillePM = strlen(msg) - 3 + 1;
+  int tailleNCD = strlen(msg) - 9 + 1;
+  char *nameCapacityDescription = (char*)malloc(tailleNCD);
+  //On récupère le pseudo et le message dans un premier temps
+  strncpy(nameCapacityDescription, msg + 3, tailleNCD);
+  //On cherche où est l'espace
+  int j = 0;
+  int debutN = 0;
+  while(debutN == 0){
+    if (!(isblank(nameCapacityDescription[j])>0)){
+      debutN = j;
+    }
+    j++;
+  }
+  int finN = 0 ;
+  while(finN == 0){
+    if (isblank(nameCapacityDescription[j])>0){
+      finN = j - 1;
+    } 
+    j++;
+  }
+
+  int debutC = 0;
+  while((debutC == 0) && j < tailleNCD){
+    if (!(isblank(nameCapacityDescription[j])>0)){
+      debutC = j;
+    }
+    j++;
+  }
+
+  int finC = 0 ;
+  while(finC == 0){
+    if (isblank(nameCapacityDescription[j])>0){
+      finC = j - 1;
+    } 
+    j++;
+  }
+
+  int debutD = 0;
+  while((debutD == 0) && j < tailleNCD){
+    if (!(isblank(nameCapacityDescription[j])>0)){
+      debutD = j;
+    }
+    j++;
+  }
+
+  
+  //On créer une place pour le name
+  int tailleN = finN - debutN + 1;
+  char *name = (char*)malloc(tailleN + 1);
+  strncpy(name, nameCapacityDescription + debutN, tailleN);
+  name[tailleN] = '\0';
+
+  //On créer une place pour la capacité
+  int tailleC = finC - debutC + 1;
+  char *capacityChar = (char*)malloc(tailleC + 1);
+  strncpy(capacityChar, nameCapacityDescription + debutC, tailleC);
+  capacityChar[tailleC] = '\0';
+  int capacity = atoi(capacityChar);
+
+  //On créer une place pour la description
+  int tailleD = strlen(nameCapacityDescription) - debutD + 1;
+  char *description = (char*)malloc(tailleD + 1);
+  strncpy(description, nameCapacityDescription + debutD, tailleD);
+  description[tailleD] = '\0';
+
+  struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
+  self->capacity = capacity;
+  self->count = 0;
+  self->name = malloc((strlen(name)+1)*sizeof(char));
+  strcpy(self->name,name);
+  
+  self->description = malloc((strlen(description)+1)*sizeof(char));
+  strcpy(self->description,description);
+
+  self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
+  
+  channels[self->numero] = self;
+  numberOfChannels++;
+}
+
+void createChannel(int dSC, char msg[]){
+  pthread_mutex_lock(&mutex_channel_file);
+  char reponse[SIZE_MESSAGE];
+  if(numberOfChannels < MAX_CHANNEL) {   
+    addChannel(msg);
+    strcpy(reponse,"Le channel à été créé avec succès");
+    sendMessage(dSC,reponse,"Erreur send channel successfully created");
+  }else{
+    strcpy(reponse,"Impossible de créer le channel, trop de channel");
+    sendMessage(dSC,reponse,"Erreur send impossible to create channel");
+  }
+  pthread_mutex_unlock(&mutex_channel_file);
+
+
 }
 
 /**
@@ -743,16 +864,19 @@ void* client(void * parametres) {
         //Liste des fichiers disponibles dans le serveur
         else if(strcmp(msg, "@serveurfiles") == 0){
           filesServeur(dSC);
-        }
+        }//Liste des channels disponibles
         else if(strcmp(msg,"@channels") == 0){
           allChannels(dSC);
-        }
+        }//Pour rejoindre un channel par son nom
         else if ((msg[1] == 'j' && msg[2] == 'c') && isblank(msg[3])>0 ){
           joinChannel(p, msg);
-        }
+        }//Pour se déconnecter d'un channel => rejoindre le channel général
         else if(strcmp(msg,"@dchannel") == 0){
           disconnectChannel(p);
-        }
+        }//Pour créer un channel
+        else if(msg[0] == '@' && msg[1] == 'c' && msg[2] == 'c' && isblank(msg[3])>0){
+          createChannel(dSC,msg);
+        }//Si la commande n'existe pas
         else {
           sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
         }
@@ -976,16 +1100,6 @@ int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
   }
   return p;
 }
-int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
-  int p = -1;
-  for(int i=0; i<taille; i++) {
-    if(tab[i] == NULL) {
-      p = i;
-      break;
-    }
-  }
-  return p;
-}
 
 void* cleanerFiles() {
   while(1) {
@@ -1135,6 +1249,7 @@ void acceptClients() {
 }
 
 void initChannels() {
+  numberOfChannels = 0;
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place_channels, 0, MAX_CHANNEL) == 1){
     perror("Erreur init sémaphore nb_place_channel");exit(1);
@@ -1191,6 +1306,7 @@ void initChannels() {
         self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
         
         channels[self->numero] = self;
+        numberOfChannels++;
         //Fin d'instanciation du salon
         strcpy(chan,"");
         count = 0;
