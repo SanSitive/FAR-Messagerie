@@ -98,7 +98,6 @@ int createSocket(char * ip, int port) {
  * @param dS 
  */
 void stopClient(int dS) {
-
   // Ferme les threads lié à l'upload de fichiers
   for (int i=0;i<MAX_FILES;i++){
     pthread_cancel(thread_files[i]);
@@ -144,13 +143,17 @@ int verifPseudo(char pseudo[]) {
   else if(size > SIZE_PSEUDO+1) {
     res = 2;
   }
+  //S'il ne commence pas par @
+  else if(pseudo[0] == '@') {
+    res = 3;
+  }
   //S'il ne contient pas de blanc
   else {
     //Enlever \n à la fin du pseudo
     pseudo[strcspn(pseudo, "\n")] = 0;
     for(size_t i=0; i<strlen(pseudo); i++) {
       if(isblank(pseudo[i])>0) {
-        res = 3;
+        res = 4;
         break;
       }
     }
@@ -178,6 +181,9 @@ void choosePseudo(char m[]) {
       printf("Le pseudo est trop grand (supérieur à %d), réessayez :\n", SIZE_PSEUDO);
     }
     else if(verif == 3) {
+      puts("Le pseudo ne doit pas commencer par @");
+    }
+    else if(verif == 4) {
       puts("Le pseudo ne doit pas contenir d'espace, réessayez :");
     }
   }
@@ -248,51 +254,47 @@ void* receiveFileProcess(void * parametres){
         sendMessage(dSF, "READY","Erreur send READY");
         //On attend la taille du fichier demandé
         recvMessage(dSF, m, "Erreur receive size");
-        printf("size : %s \n",m);
+        int size = atoi(m);
         sendMessage(dSF,"OK","Erreur confirm receive size");
         //On attend un message de confirmation pour l'ouverture du fichier
         recvMessage(dSF, m, "Erreur receive confirmation fopen");
 
         if(strcmp(m, "ERR") == 0){
-          puts("Erreur d'ouverture de fichier, veuillez réessayer");
-        }else{
-          //On récupère la taille du fichier
-          int size = atoi(m);
-          char buffer[size];
-          strcpy(buffer,"");
-          int dataTotal = 0;
-          int sizeToGet = size;
-          do {
-            sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
-            if(sizeToGet > 0) {
-              char data[sizeToGet+1];
-              int dataGet = recv(dSF, data, sizeof(char)*sizeToGet, 0);
-              if(dataGet == -1) {
-                perror("Erreur recv file data");exit(1);
-              }
-              data[sizeToGet] = '\0';
-              dataTotal += dataGet;
-              strcat(buffer, data);
-              sendMessage(dSF, "OK", "Erreur file confirm data");
-            }
-          } while(sizeToGet > 0);
-
-          recvMessage(dSF, m, "Erreur recv file END");
-          if(strcmp(m, "END") == 0) {
-            char path[SIZE_MESSAGE] = "./download_client/";
-            strcat(path, f->filename);
-            printf("path : %s\n",path);
-            // Enregistrer le fichier :
-            FILE *fp = fopen(path, "wb"); // must use binary mode
-            //Gestion erreur fopen 
-            if (fp == NULL){
-              //On averti le client
-              puts("Erreur lors de l'enregistrement du fichier, veuillez réessayer");
-            }else{
-              fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
-            }
-            fclose(fp);
+          puts("Erreur lors de la réception du fichier, veuillez réessayer");
+        }
+        else if(strcmp(m, "OK") == 0) {
+          char path[SIZE_MESSAGE] = "./download_client/";
+          strcat(path, f->filename);
+          printf("path : %s\n",path);
+          // Enregistrer le fichier :
+          FILE *fp = fopen(path, "wb");
+          if(fp == NULL) {
+            sendMessage(dSF, "ERR", "Erreur send erreur openFile");
+            puts("Erreur lors de la réception du fichier, veuillez réssayer");
           }
+          else {
+            sendMessage(dSF, "OK", "Erreur send debute reception");
+            //On peut commencer la réception
+            if(strcmp(m, "OK") == 0){
+              int dataTotal = 0;
+              int sizeToGet = size;
+              do {
+                sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
+                if(sizeToGet > 0) {
+                  char *data = (char*)malloc(sizeof(char)*sizeToGet);
+                  int dataGet = recv(dSF, data, sizeof(char)*sizeToGet, 0);
+                  if(dataGet == -1) {
+                    perror("Erreur recv file data");exit(1);
+                  }
+                  dataTotal += dataGet;
+                  fwrite(data, sizeof(data[0]), sizeToGet, fp);
+                  sendMessage(dSF, "OK", "Erreur file confirm data");
+                  free(data);
+                }
+              } while(sizeToGet > 0);
+            }
+          }
+          fclose(fp);
         }
       }
     }
@@ -330,19 +332,7 @@ void* sendFileProcess(void * parametres) {
     sprintf(sizeString, "%d", size);
 
     //Création du socket
-    int dSF = socket(PF_INET, SOCK_STREAM, 0);
-    if(dSF == -1) {
-      perror("Erreur socket dSF");exit(1);
-    }
-
-    struct sockaddr_in aS;
-    aS.sin_family = AF_INET;
-    inet_pton(AF_INET, ip, &(aS.sin_addr));
-    aS.sin_port = htons(port_file);
-    socklen_t lgA = sizeof(struct sockaddr_in);
-    if(-1 == connect(dSF, (struct sockaddr *) &aS, lgA)) {
-      perror("Erreur connect dSF");exit(1);
-    }
+    int dSF = createSocket(ip, port_file);
 
     char m[SIZE_MESSAGE];
     //On attends la confirmation de connexion au serveur
@@ -359,8 +349,10 @@ void* sendFileProcess(void * parametres) {
         sendMessage(dSF, f->filename, "Erreur send filename");
         // On attends que le serveur nous dis si un fichier n'existe pas déjà sous ce nom
         recvMessage(dSF, m, "Erreur file filename");
-
-        if(strcmp(m, "OK") == 0) {
+        if(strcmp(m, "ERR") == 0) {
+          puts("Une erreur s'est produite sur le serveur, veuillez réessayer");
+        }
+        else if(strcmp(m, "OK") == 0) {
           // On envoie alors la taille, puis les données
           sendMessage(dSF, sizeString, "Erreur send size");
           recvMessage(dSF, m, "Erreur recv file OK");
@@ -374,21 +366,23 @@ void* sendFileProcess(void * parametres) {
               puts("Erreur d'ouverture du fichier, veuillez réessayer");
             }else{
               sendMessage(dSF,"OK","Erreur sending erreur fopen");
+
               int dataSent = 0;
-            
               while(dataSent < size && strcmp(m, "OK") == 0) {
                 int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
-                char data[sizeToGet];
+                char *data = (char*)malloc(sizeof(char)*sizeToGet);
+                for(int i=0; i<sizeToGet; i++) {
+                  data[i] = 0;
+                }
                 dataSent += fread(data, sizeof(char), sizeToGet, fp);
 
                 int sent = send(dSF, data, sizeof(char)*sizeToGet, 0);
-                if(sent == -1 ) {
-                  perror("Erreur send data file");
-                  exit(1);
+                if(sent == -1) {
+                  perror("Erreur send data file");exit(1);
                 }
                 recvMessage(dSF, m, "Erreur recv file OK");
+                free(data);
               }
-              sendMessage(dSF, "END", "Erreur send file end");
             }
             fclose(fp);
           }
@@ -479,6 +473,10 @@ void sendFile(char *filename) {
   pthread_create(&thread_files[self->numero], NULL, sendFileProcess, (void*)self);
 }
 
+/**
+ * @brief Demande à l'utilisateur de choisir un fichier à envoyer au serveur
+ * 
+ */
 void selectFile(){
   if(getEmptyPosition(tabIndexThreadFile, MAX_FILES) > -1) {
     struct stat st = {0};
@@ -647,7 +645,7 @@ int main(int argc, char *argv[]) {
 
   if(strcmp(m, "OK") == 0) {
     puts("Connexion réussie");
-
+    
     // Choix du pseudo
     choosePseudo(m);
     sendMessage(dS, m, "Erreur send Pseudo");
@@ -656,7 +654,6 @@ int main(int argc, char *argv[]) {
     // Si pseudo accepté
     if(strcmp(m, "OK") == 0) {
       puts("Login réussi");
-
       launchClient(dS);
     }
     else if(strcmp(m, "PseudoTaken") == 0) {
