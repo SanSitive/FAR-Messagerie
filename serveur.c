@@ -320,8 +320,62 @@ void clientToAll(struct clientStruct* p, char msg[]) {
     pthread_mutex_lock(&mutex_clients);
     for(int i = 0; i<MAX_CLIENTS; i++) {
       if(clients[i] != NULL) {
-        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-          sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+        if(clients[i]->channel == NULL){
+          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+            sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+          }
+        }
+      }
+    }
+    pthread_mutex_unlock(&mutex_clients);
+  }
+
+  pthread_mutex_unlock(&mutex_clients);
+}
+
+/**
+ * @brief Fonction qui va envoyer le message du client aux autres clients présents dans le channel
+ * 
+ * @param p 
+ * @param msg 
+ */
+void clientToChannel(struct clientStruct* p, char msg[]){
+  char msgPseudo[SIZE_MESSAGE];
+  pthread_mutex_lock(&mutex_clients);
+  strcpy(msgPseudo, p->pseudo);
+  pthread_mutex_unlock(&mutex_clients);
+  strcat(msgPseudo, " : ");
+  int sizeMsgPseudo = strlen(msgPseudo);
+  int sizeMsg = strlen(msg) + 1;
+
+  int toSend = sizeMsg;
+  int nbSend = 0;
+  //Tant qu'on a pas envoyé le message en entier
+  while(toSend > nbSend) {
+    char msgToSend[SIZE_MESSAGE];
+    strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
+    msgToSend[sizeMsgPseudo] = '\0';
+    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
+    if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
+      int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
+      strncat(msgToSend, msg+nbSend, sizeToSend);
+      msgToSend[SIZE_MESSAGE-1] = '\0';
+      nbSend += sizeToSend;
+    }
+    //Sinon on peut directement ajouter ce qu'il reste
+    else {
+      strcat(msgToSend, msg+nbSend);
+      nbSend = toSend;
+    }
+    printf("\n%s\n", msgToSend);
+    //On envoie le message aux autres clients
+    pthread_mutex_lock(&mutex_clients);
+    for(int i = 0; i<MAX_CLIENTS; i++) {
+      if(clients[i] != NULL) {
+        if (clients[i]->channel == p->channel){
+          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
+            sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
+          }
         }
       }
     }
@@ -568,10 +622,66 @@ void allChannels(int dSC){
   pthread_mutex_lock(&mutex_channel_place);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
-      sendMessage(dSC,channels[i]->name,"Erreur envoi channel");
+      char msg[SIZE_MESSAGE];
+      sprintf(msg, "Nombre d'utilisateurs connectés : %d/%d : %s",channels[i]->count,channels[i]->capacity,channels[i]->name);
+      sendMessage(dSC,msg,"Erreur envoi channel");
     }
   }
   pthread_mutex_unlock(&mutex_channel_place);
+}
+
+/**
+ * @brief Fonction qui permet au client de rejoindre un channel
+ * 
+ * @param p 
+ * @param msg 
+ */
+void joinChannel(struct clientStruct* p, char msg[]){
+  //On créer une place pour le nom du channel que l'on veut rejoindre
+  int tailleC= strlen(msg) - 4 + 1;
+  char *nomChannel = (char*)malloc(tailleC);
+  strncpy(nomChannel, msg + 4, tailleC);
+
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //On cherche dans la liste des channels, le channel que l'utilisateur a demandé
+  for (int i = 0; i < MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      if (strcmp(channels[i]->name, nomChannel) == 0){
+        //On change le channel actuel du client
+        p->channel = channels[i];
+        sendMessage(p->dSC, "Channel rejoint !\n", "Erreur sending join channel");
+        break;
+      }
+    } 
+  }
+
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
+
+  free(nomChannel);
+}
+
+/**
+ * @brief Fonction qui permet au client de sortir du channel où il se situe
+ * 
+ * @param p 
+ */
+void disconnectChannel(struct clientStruct* p){
+  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_clients);
+
+  //Si le client est dans aucun channel
+  if (p->channel == NULL){
+    sendMessage(p->dSC, "Vous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
+  }else{
+    p->channel = NULL;
+    sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
+  }
+  
+  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_clients);
 }
 
 /**
@@ -595,13 +705,19 @@ void* client(void * parametres) {
       char msg[SIZE_MESSAGE];
       recvMessage(dSC, msg, "Erreur recv client");
       
-      // Message normal, on envoie aux autres clients
+      // Message normal, on envoie aux autres clients 
       if(msg[0] != '@') {
-        clientToAll(p, msg);
+        //si le client est dans le channel général, on envoie à tout le monde
+        if(p->channel == NULL){
+          clientToAll(p, msg);
+        }else{ //Si le client est dans un channel, on envoie seulement aux membres du channels
+          clientToChannel(p, msg);
+        }
       }
       // Commandes
       else {
         transformCommand(msg);
+        puts(msg);
         //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
@@ -624,6 +740,12 @@ void* client(void * parametres) {
         }
         else if(strcmp(msg,"@channels") == 0){
           allChannels(dSC);
+        }
+        else if ((msg[1] == 'j' && msg[2] == 'c') && isblank(msg[3])>0 ){
+          joinChannel(p, msg);
+        }
+        else if(strcmp(msg,"@dchannel") == 0){
+          disconnectChannel(p);
         }
         else {
           sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
@@ -954,9 +1076,8 @@ void addClientSocket(int dSC) {
   self->pseudo = NULL; // Pas encore connecté
   self->numero = getEmptyPositionClient(clients, MAX_CLIENTS);
   pthread_mutex_lock(&mutex_channel_place);
-  self->channel = channels[0];
+  self->channel = NULL;
   pthread_mutex_unlock(&mutex_channel_place);
-  printf("Le channel du client est %s\n",self->channel->name);
 
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
@@ -1080,19 +1201,6 @@ void initChannels() {
         //Fin d'instanciation du salon
         strcpy(chan,"");
         count = 0;
-      }
-    }
-    //On met la capacité du channel général = au max de clients
-    for(int i=0; i<MAX_CHANNEL; i++){
-      if(channels[i] != NULL){
-        char temp[8];
-        for(int j = 0; j<7; j++){
-          temp[j] = channels[i]->name[j];
-        }
-        if(strcmp(temp,"General") == 0){
-          strcpy(channels[i]->description,"Le channel général");
-          channels[i]->capacity = MAX_CLIENTS;
-        }
       }
     }
     fclose(fileSource);

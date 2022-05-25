@@ -8,3 +8,5 @@ Liste des commandes :
 @sendfile : envoie un fichier au serveur
 @rcvf nomfichier : récupération du fichier demandé
 @channels : liste des channels disponibles
+@jc nomChannel : pour rejoindre un channel
+@dchannel : pour sortir du channel
