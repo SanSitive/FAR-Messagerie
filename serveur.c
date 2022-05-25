@@ -260,12 +260,11 @@ int login(int dSC, struct clientStruct * p) {
   int res = 1;
   char msg[SIZE_MESSAGE];
   // Récupérer les infos
-  if(-1 == recv(p->dSC, msg, SIZE_MESSAGE*sizeof(char), 0)) {
-    perror("Erreur recv login");exit(1);
-  }
-
-  // Vérification
-  if(isPseudoTaken(msg) == 1) res = 0;
+  recvMessage(p->dSC, msg, "Erreur recv login");
+  
+  //Vérification
+  if(strcmp(msg, "@disconnect") == 0 || strlen(msg) <1) return 0;
+  else if(isPseudoTaken(msg) == 1) res = 0;
 
   // Réponse au client
   if(res == 1) {
@@ -379,9 +378,7 @@ void help(int dSC) {
     char ch;
     char help[SIZE_MESSAGE];
     //On vide le help (erreur nouvelle)
-    for (size_t i = 0; i < SIZE_MESSAGE; i++){
-      help[i]=0;
-    }
+    help[0] = '\0';
     int count = 0;
     while( ( ch = fgetc(fileSource) ) != EOF ){
       strncat(help,&ch,1);
@@ -596,10 +593,7 @@ void* client(void * parametres) {
     // Messages de l'utilisateur, tant qu'il n'indique pas @d/@disconnect
     do {
       char msg[SIZE_MESSAGE];
-      int r = recv(dSC, msg, SIZE_MESSAGE*sizeof(char), 0);
-      if(-1 == r) {
-        perror("Erreur recv client");exit(1);
-      }
+      recvMessage(dSC, msg, "Erreur recv client");
       
       // Message normal, on envoie aux autres clients
       if(msg[0] != '@') {
@@ -650,7 +644,7 @@ void* client(void * parametres) {
   pthread_mutex_unlock(&mutex_thread);
   clients[p->numero] = NULL;
   p->dSC = -1;
-  free(p->pseudo);
+  //free(p->pseudo);
   free(p);
   pthread_mutex_unlock(&mutex_clients);
   // Nombre de place disponible incrémenté
@@ -672,9 +666,14 @@ void fileToServer(struct fileStruct * f){
   recvMessage(f->dSF, msg, "Erreur recv filename");
   char path[SIZE_MESSAGE] = "./download_server/";
   strcat(path, msg);
-  //Vérifier que le fichier existe pas déjà
-  sendMessage(f->dSF, "OK", "Erreur confirm filename");
-  if(1) {
+  FILE *fp = fopen(path, "wb");
+
+  if(fp == NULL) {
+    sendMessage(f->dSF, "ERR", "Erreur ouverture filename");
+  }
+  else {
+    sendMessage(f->dSF, "OK", "Erreur confirm filename");
+
     int size = 0;
     recvMessage(f->dSF, msg, "Erreur recv size");
     size = atoi(msg);
@@ -683,41 +682,25 @@ void fileToServer(struct fileStruct * f){
     recvMessage(f->dSF,msg,"Erreur recv open ok");
     //On a bien réussi à ouvrir le fichier
     if(strcmp(msg, "OK") == 0){
-      char buffer[size];
-      strcpy(buffer, "");
-
       int dataTotal = 0;
       int sizeToGet = size;
       do {
         sizeToGet = size - dataTotal > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataTotal;
         if(sizeToGet > 0) {
-          char data[sizeToGet+1];
+          char *data = (char*)malloc(sizeof(char)*sizeToGet);
           int dataGet = recv(f->dSF, data, sizeof(char)*sizeToGet, 0);
           if(dataGet == -1) {
             perror("Erreur recv file data");exit(1);
           }
-          data[sizeToGet] = '\0';
           dataTotal += dataGet;
-          strcat(buffer, data);
+          fwrite(data, sizeof(data[0]), sizeToGet, fp);
           sendMessage(f->dSF, "OK", "Erreur file confirm data");
+          free(data);
         }
       } while(sizeToGet > 0);
-
-      recvMessage(f->dSF, msg, "Erreur recv file END");
-      if(strcmp(msg, "END") == 0) {
-        // Enregistrer le fichier :
-        FILE *fp = fopen(path, "wb"); // must use binary mode
-        //Gestion erreur fopen 
-        if (fp == NULL){
-          //On averti le client
-          sendMessage(f->dSF, "Erreur d'enregistrement de votre fichier sur le serveur. Veuillez réessayer.", "Erreur sending erreur with fopen");
-        }else{ //pas d'erreur
-          fwrite(buffer, sizeof(buffer[0]), size, fp); // writes an array of doubles
-        }
-        fclose(fp);
-      }
     }
   }
+  fclose(fp);
 }
 
 /**
@@ -728,7 +711,7 @@ void fileToServer(struct fileStruct * f){
 void fileToClient(struct fileStruct * f){
   char m[SIZE_MESSAGE];
   //On attends le nom du fichier
-  recvMessage(f->dSF, m, "Erreur file connexion");
+  recvMessage(f->dSF, m, "Erreur filename");
 
   pthread_mutex_lock(&mutex_file);
   
@@ -753,13 +736,12 @@ void fileToClient(struct fileStruct * f){
     if(strcmp(m, "READY") == 0) {
       //On envoie la taille du fichier demandé
       sendMessage(f->dSF, sizeString, "Erreur send size");
-      //On attend la confirmation du serveur
+      //On attend la confirmation du client
       recvMessage(f->dSF, m, "Erreur file protocol");
 
       if(strcmp(m, "OK") == 0){
         pthread_mutex_lock(&mutex_file);
         FILE * fp = fopen(path, "rb");
-        int dataSent = 0;
         
         //Gestion erreur fopen 
         if (fp == NULL){
@@ -767,18 +749,27 @@ void fileToClient(struct fileStruct * f){
           sendMessage(f->dSF, "ERR", "Erreur sending erreur with fopen");
         }else{
           sendMessage(f->dSF, "OK", "Erreur sending ok with fopen");
-          while(dataSent < size && strcmp(m, "OK") == 0) {
-            int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
-            char data[sizeToGet];
-            dataSent += fread(data, sizeof(char), sizeToGet, fp);
 
-            int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
-            if(sent == -1 ) {
-              perror("Erreur send data file");exit(1);
+          //On attend la confirmation du client pour envoyer
+          recvMessage(f->dSF, m, "Erreur file protocol");
+          if(strcmp(m, "OK") == 0) {
+            int dataSent = 0;
+            while(dataSent < size && strcmp(m, "OK") == 0) {
+              int sizeToGet = size - dataSent > SIZE_MESSAGE ? SIZE_MESSAGE : size - dataSent;
+              char *data = (char*)malloc(sizeof(char)*sizeToGet);
+              for(int i=0; i<sizeToGet; i++) {
+                data[i] = 0;
+              }
+              dataSent += fread(data, sizeof(char), sizeToGet, fp);
+
+              int sent = send(f->dSF, data, sizeof(char)*sizeToGet, 0);
+              if(sent == -1) {
+                perror("Erreur send data file");exit(1);
+              }
+              recvMessage(f->dSF, m, "Erreur recv file OK");
+              free(data);
             }
-            recvMessage(f->dSF, m, "Erreur recv file OK");
           }
-          sendMessage(f->dSF, "END", "Erreur send file end");
         }
         fclose(fp);
       }  
@@ -810,12 +801,12 @@ void* file(void * parametres) {
   }
 
   pushStack(zombieStackFiles, f->numero);
+  files[f->numero] = NULL;
   free(f->filename);
   free(f);
   // Nombre de place disponible incrémenté
   if(sem_post(&sem_place) == -1){
-    perror("Erreur post sémaphore nb_place_dispo");
-    exit(1);
+    perror("Erreur post sémaphore nb_place_dispo");exit(1);
   }
   pthread_exit(0);
 }
@@ -854,6 +845,13 @@ int getEmptyPositionFile(struct fileStruct * tab[], int taille) {
   }
   return p;
 }
+/**
+ * @brief Trouve la première place libre dans la liste des channels, -1 si une place n'a pas été trouvée
+ * 
+ * @param tab 
+ * @param taille 
+ * @return index dans le tableau de la place disponible, -1 si aucune place n'est disponible
+ */
 int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
@@ -865,6 +863,11 @@ int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
   return p;
 }
 
+/**
+ * @brief Fonction lié au thread qui clean en boucle les thread files zombies s'il en existe
+ * 
+ * @return void*
+ */
 void* cleanerFiles() {
   while(1) {
     // On attends qu'un thread file se ferme
@@ -888,11 +891,11 @@ void* cleanerFiles() {
 }
 
 /**
- * @brief Fonction lié au thread qui clean en boucle les thread zombie s'il en existe
+ * @brief Fonction lié au thread qui clean en boucle les thread clients zombies s'il en existe
  * 
  * @return void*
  */
-void* cleaner(){
+void* cleanerClients(){
   while(1){
     // On attends qu'un thread client se ferme
     if(sem_wait(&sem_thread) == 1){
@@ -1013,6 +1016,10 @@ void acceptClients() {
   }
 }
 
+/**
+ * @brief Initialise et récupère les channels sauvegardés
+ * 
+ */
 void initChannels() {
   //On initialise le sémaphore indiquant le nombre de place restante
   if(sem_init(&sem_place_channels, 0, MAX_CHANNEL) == 1){
@@ -1144,7 +1151,7 @@ void initClients(int port) {
 
   // Thread qui s'occupera des threads clients zombies
   zombieStack = createStack();
-  pthread_create(&thread_cleaner, NULL, cleaner, NULL);
+  pthread_create(&thread_cleaner, NULL, cleanerClients, NULL);
 }
 
 /**
