@@ -51,10 +51,8 @@ struct clientStruct {
 //---START CHANNELS--------------------------------------------------------//
 // Structure d'un salon, stocké dans le tableaux des clients (chaque clients appartient à un salon)
 struct channelStruct ** channels; //Liste des channels
-sem_t sem_place_channels;         //Sémaphore indiquant si le nombre de channel créable possible
 int numberOfChannels;
-pthread_mutex_t mutex_channel_file;
-pthread_mutex_t mutex_channel_place;
+pthread_mutex_t mutex_channel;
 
 struct channelStruct {
   int capacity; //Nombre max de client dans un channel 
@@ -141,6 +139,26 @@ int createSocketServer(int port) {
 }
 
 /**
+ * @brief Enregistre les channels dans le fichier channel.txt
+ * 
+ */
+void saveChannels() {
+  FILE* fp = fopen("channel.txt", "w");
+  if(fp != NULL) {
+    for(int i=0; i<MAX_CHANNEL; i++) {
+      if(channels[i] != NULL) {
+        if(channels[i]->name != NULL){
+          fwrite(channels[i]->name, sizeof(channels[i]->name[0]), strlen(channels[i]->name), fp);
+          fwrite("\n", sizeof(char), strlen("\n"), fp);
+        }
+      }
+    }
+    fwrite("END", sizeof(char), 3, fp);
+    fclose(fp);
+  }
+}
+
+/**
  * @brief Ferme le serveur
  * 
  * @param dS 
@@ -165,11 +183,13 @@ void stopServeur(int dS) {
     }
   }
   free(files);
-  //A RAJOUTER : la save des channels dans le fichier channel.txt avant le free
-  pthread_mutex_lock(&mutex_channel_place);
+
+  //Sauvegarde des channels, et free
+  pthread_mutex_lock(&mutex_channel);
+  saveChannels();
   for(int i=0; i<MAX_CHANNEL; i++) {
     if(channels[i] != NULL) {
-      if(channels[i]->name != NULL && channels[i]->description != NULL){
+      if(channels[i]->name != NULL){
         free(channels[i]->name);
       }
       if(channels[i]->description != NULL){
@@ -179,7 +199,7 @@ void stopServeur(int dS) {
     }
   }
   free(channels);
-  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_channel);
 
   for (int i=0;i<MAX_CLIENTS;i++){
     pthread_cancel(thread[i]);
@@ -194,16 +214,14 @@ void stopServeur(int dS) {
   pthread_mutex_destroy(&mutex_clients);
   pthread_mutex_destroy(&mutex_help);
   pthread_mutex_destroy(&mutex_thread);
-  pthread_mutex_destroy(&mutex_channel_place);
-  pthread_mutex_destroy(&mutex_channel_file);
+  pthread_mutex_destroy(&mutex_channel);
   sem_destroy(&sem_place);
   sem_destroy(&sem_thread);
-  sem_destroy(&sem_place_channels);
   sem_destroy(&sem_place_files);
   sem_destroy(&sem_thread_files);
 
 
-  //Clear les piles
+  //Clear les piles des cleaners
   clearStack(zombieStack);
   free(zombieStack);
   clearStack(zombieStackFiles);
@@ -455,8 +473,8 @@ void help(int dSC) {
       help[count] = '\0';
       sendMessage(dSC, help, "");
     }
+    fclose(fileSource);
   }
-  fclose(fileSource);
   pthread_mutex_unlock(&mutex_help);
 }
 
@@ -466,18 +484,30 @@ void help(int dSC) {
  * @param dSC 
  */
 void listClients(int dSC) {
-  char all[SIZE_MESSAGE] = "";
+  sendMessage(dSC, "Pseudo              | Salon", "Erreur send entête listClients");
   pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
-        strcat(all, clients[i]->pseudo);
-        strcat(all, "\n");
+        char msg[SIZE_MESSAGE] = "";
+        strcat(msg, clients[i]->pseudo);
+        int size = strlen(clients[i]->pseudo);
+        for(int i=size; i<20; i++)
+          strcat(msg, " ");
+        strcat(msg, "| ");
+        if(clients[i]->channel == NULL) {
+          strcat(msg, "General");
+        }
+        else {
+          pthread_mutex_lock(&mutex_channel);
+          strcat(msg, clients[i]->channel->name);
+          pthread_mutex_unlock(&mutex_channel);
+        }
+        sendMessage(dSC, msg, "Erreur send listClients");
       }
     }
   }
   pthread_mutex_unlock(&mutex_clients);
-  sendMessage(dSC, all, "Erreur send listClients");
 }
 
 /**
@@ -626,15 +656,15 @@ void filesServeur(int dSC){
  * @param dSC 
  */
 void allChannels(int dSC){
-  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_channel);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
       char msg[SIZE_MESSAGE];
-      sprintf(msg, "Nombre d'utilisateurs connectés : %d/%d : %s",channels[i]->count,channels[i]->capacity,channels[i]->name);
+      sprintf(msg, "Utilisateurs : %d/%d : %s",channels[i]->count,channels[i]->capacity,channels[i]->name);
       sendMessage(dSC,msg,"Erreur envoi channel");
     }
   }
-  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_channel);
 }
 
 /**
@@ -649,7 +679,7 @@ void joinChannel(struct clientStruct* p, char msg[]){
   char *nomChannel = (char*)malloc(tailleC);
   strncpy(nomChannel, msg + 4, tailleC);
 
-  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_channel);
   pthread_mutex_lock(&mutex_clients);
 
   int found = 0;
@@ -680,7 +710,7 @@ void joinChannel(struct clientStruct* p, char msg[]){
   }
   
 
-  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_channel);
   pthread_mutex_unlock(&mutex_clients);
 
   free(nomChannel);
@@ -692,7 +722,7 @@ void joinChannel(struct clientStruct* p, char msg[]){
  * @param p 
  */
 void disconnectChannel(struct clientStruct* p){
-  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_channel);
   pthread_mutex_lock(&mutex_clients);
 
   //Si le client est dans aucun channel
@@ -703,7 +733,7 @@ void disconnectChannel(struct clientStruct* p){
     sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
   }
   
-  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_channel);
   pthread_mutex_unlock(&mutex_clients);
 }
 
@@ -948,7 +978,7 @@ void addChannel(char msg[]){
  * @param msg 
  */
 void createChannel(int dSC, char msg[]){
-  pthread_mutex_lock(&mutex_channel_file);
+  pthread_mutex_lock(&mutex_channel);
   char reponse[SIZE_MESSAGE];
   if(numberOfChannels < MAX_CHANNEL) {   
     addChannel(msg);
@@ -958,7 +988,7 @@ void createChannel(int dSC, char msg[]){
     strcpy(reponse,"Impossible de créer le channel, trop de channel");
     sendMessage(dSC,reponse,"Erreur send impossible to create channel");
   }
-  pthread_mutex_unlock(&mutex_channel_file);
+  pthread_mutex_unlock(&mutex_channel);
 
 
 }
@@ -1035,7 +1065,6 @@ void* client(void * parametres) {
       // Commandes
       else {
         transformCommand(msg);
-        puts(msg);
         //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
@@ -1146,8 +1175,8 @@ void fileToServer(struct fileStruct * f){
         }
       } while(sizeToGet > 0);
     }
+    fclose(fp);
   }
-  fclose(fp);
 }
 
 /**
@@ -1217,8 +1246,8 @@ void fileToClient(struct fileStruct * f){
               free(data);
             }
           }
+          fclose(fp);
         }
-        fclose(fp);
       }  
     }
   }
@@ -1383,9 +1412,7 @@ void addClientSocket(int dSC) {
   self->dSC = dSC;
   self->pseudo = NULL; // Pas encore connecté
   self->numero = getEmptyPositionClient(clients, MAX_CLIENTS);
-  pthread_mutex_lock(&mutex_channel_place);
   self->channel = NULL;
-  pthread_mutex_unlock(&mutex_channel_place);
 
   clients[self->numero] = self;
   // Client connecté, on lui envoie la confirmation
@@ -1451,29 +1478,18 @@ void acceptClients() {
  */
 void initChannels() {
   numberOfChannels = 0;
-  //On initialise le sémaphore indiquant le nombre de place restante
-  if(sem_init(&sem_place_channels, 0, MAX_CHANNEL) == 1){
-    perror("Erreur init sémaphore nb_place_channel");exit(1);
-  }
 
-  // Liste qui contiendra les informations des clients
+  // Tableau des channels
   channels = (struct channelStruct**)malloc(MAX_CHANNEL*sizeof(struct channelStruct *));
   for(int i=0; i<MAX_CHANNEL; i++) {
     channels[i] = NULL;
   }
 
-  pthread_mutex_lock(&mutex_channel_file);
-  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_channel);
   FILE *fileSource;
   fileSource = fopen("channel.txt", "r");
 
-  //Gestion erreur fopen 
-  if (fileSource == NULL){
-    //On averti le client ? On redemarre le serveur ? fonction dans main
-    fclose(fileSource);
-    pthread_mutex_unlock(&mutex_channel_file);
-    pthread_mutex_unlock(&mutex_channel_place);
-  }else{ //pas d'erreur
+  if(fileSource != NULL){ //pas d'erreur
     char ch;
     char chan[SIZE_MESSAGE];
     int count = 0;
@@ -1514,9 +1530,8 @@ void initChannels() {
       }
     }
     fclose(fileSource);
-    pthread_mutex_unlock(&mutex_channel_file);
-    pthread_mutex_unlock(&mutex_channel_place);
   }
+  pthread_mutex_unlock(&mutex_channel);
 }
 
 /**
