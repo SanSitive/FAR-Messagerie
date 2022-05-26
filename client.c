@@ -293,8 +293,8 @@ void* receiveFileProcess(void * parametres){
                 }
               } while(sizeToGet > 0);
             }
+            fclose(fp);
           }
-          fclose(fp);
         }
       }
     }
@@ -383,8 +383,8 @@ void* sendFileProcess(void * parametres) {
                 recvMessage(dSF, m, "Erreur recv file OK");
                 free(data);
               }
+              fclose(fp);
             }
-            fclose(fp);
           }
         }
       }
