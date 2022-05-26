@@ -269,6 +269,27 @@ int isPseudoTaken(char pseudo[]) {
 }
 
 /**
+ * @brief Vérifie si un nom de channel est déjà pris. Retourn 1 si oui, 0 sinon
+ * 
+ * @param name
+ * @return int 
+ */
+int isNameTaken(char name[]) {
+  int res = 0;
+  for(int i=0; i<MAX_CHANNEL; i++) {
+    if(channels[i] != NULL) {
+      if(channels[i]->name != NULL) {
+        if(strcmp(name, channels[i]->name) == 0) {
+          res = 1;
+          break;
+        }
+      }
+    }
+  }
+  return res;
+}
+
+/**
  * @brief Vérifie les informations de login d'un client.
  *        Retourne 1 si les informations sont bonnes, 0 sinon, ou si le pseudo est déjà pris
  * @param dSC
@@ -524,15 +545,15 @@ void dm(struct clientStruct* p, char msg[]) {
   strncpy(pseudoMessage, msg + 3, taillePM);
   //On cherche où est l'espace
   int j = 0;
-  int debutP = 0;
-  while(debutP == 0){
+  int debutP = -1;
+  while(debutP == -1 && j<taillePM){
     if (!(isblank(pseudoMessage[j])>0)){
       debutP = j;
     }
     j++;
   }
   int finP = 0 ;
-  while(finP == 0){
+  while(finP == 0 && j<taillePM){
     if (isblank(pseudoMessage[j])>0){
       finP = j - 1;
     } 
@@ -547,61 +568,65 @@ void dm(struct clientStruct* p, char msg[]) {
     j++;
   }
   
-  //On créer une place pour le pseudo
-  int tailleP = finP - debutP + 1;
-  char *pseudo = (char*)malloc(tailleP + 1);
-  strncpy(pseudo, pseudoMessage + debutP, tailleP);
-  pseudo[tailleP] = '\0';
-  //On créer une place pour le message
-  int tailleM = strlen(pseudoMessage) - debutM + 1;
-  char *message = (char*)malloc(tailleM + 1);
-  strncpy(message, pseudoMessage + debutM, tailleM);
-  message[tailleM] = '\0';
+  if(debutP != -1 && finP != 0 && debutM != 0){//Le format de la commande a été respecté
+    //On créer une place pour le pseudo
+    int tailleP = finP - debutP + 1;
+    char *pseudo = (char*)malloc(tailleP + 1);
+    strncpy(pseudo, pseudoMessage + debutP, tailleP);
+    pseudo[tailleP] = '\0';
+    //On créer une place pour le message
+    int tailleM = strlen(pseudoMessage) - debutM + 1;
+    char *message = (char*)malloc(tailleM + 1);
+    strncpy(message, pseudoMessage + debutM, tailleM);
+    message[tailleM] = '\0';
 
-  //On cherche le pseudo dans la liste des pseudos existants 
-  pthread_mutex_lock(&mutex_clients);
-  int error = 1;
+    //On cherche le pseudo dans la liste des pseudos existants 
+    pthread_mutex_lock(&mutex_clients);
+    int error = 1;
 
-  //Si le client s'envoie un message à lui même
-  if(strcmp(p->pseudo, pseudo) == 0){
-    error = 2;
-  }
-  //Si la taille du message en comptant le pseudo est trop grande
-  else if(strlen(p->pseudo) + strlen(" (mp) : ") + strlen(message) > SIZE_MESSAGE) {
-    error = 3;
-  }
-  else{
-    for(int i=0; i<MAX_CLIENTS; i++) {
-      if(clients[i] != NULL) { //On vérifie que le client existe
-        if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
-          if(strcmp(pseudo, clients[i]->pseudo) == 0){
-            char msgComplet[SIZE_MESSAGE];
-            strcpy(msgComplet, p->pseudo);
-            strcat(msgComplet, " (mp) : ");
-            strcat(msgComplet, message);
-            sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
-            error = 0;
-            break;
+    //Si le client s'envoie un message à lui même
+    if(strcmp(p->pseudo, pseudo) == 0){
+      error = 2;
+    }
+    //Si la taille du message en comptant le pseudo est trop grande
+    else if(strlen(p->pseudo) + strlen(" (mp) : ") + strlen(message) > SIZE_MESSAGE) {
+      error = 3;
+    }
+    else{
+      for(int i=0; i<MAX_CLIENTS; i++) {
+        if(clients[i] != NULL) { //On vérifie que le client existe
+          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
+            if(strcmp(pseudo, clients[i]->pseudo) == 0){
+              char msgComplet[SIZE_MESSAGE];
+              strcpy(msgComplet, p->pseudo);
+              strcat(msgComplet, " (mp) : ");
+              strcat(msgComplet, message);
+              sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
+              error = 0;
+              break;
+            }
           }
         }
       }
     }
-  }
-  //Si le pseudo n'appartient à personne
-  if(error == 1) {
-    sendMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
-  }else if(error == 2){
-    sendMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
-  }
-  else if(error == 3) {
-    sendMessage(p->dSC, "La taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
-  }
+    //Si le pseudo n'appartient à personne
+    if(error == 1) {
+      sendMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
+    }else if(error == 2){
+      sendMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
+    }
+    else if(error == 3) {
+      sendMessage(p->dSC, "La taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
+    }
 
-  pthread_mutex_unlock(&mutex_clients);
+    pthread_mutex_unlock(&mutex_clients);
 
-  free(pseudoMessage);
-  free(pseudo);
-  free(message);
+    free(pseudoMessage);
+    free(pseudo);
+    free(message);
+  }else{
+    sendMessage(p->dSC,"La commande ne s'est pas exécuté car vous ne respectez pas le bon format", "Erreur send bad format");
+  }
 }
 
 /**
@@ -838,7 +863,7 @@ void updateChannel(int dSC, char msg[]){
   
 
   //On cherche le channel
-  pthread_mutex_lock(&mutex_channel_place);
+  pthread_mutex_lock(&mutex_channel);
   int find = -1;
   for(int i = 0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
@@ -867,7 +892,7 @@ void updateChannel(int dSC, char msg[]){
   }else{
     sendMessage(dSC,"Le channel n'a pas été trouvé", "Erreur send confirmation update");
   }
-  pthread_mutex_unlock(&mutex_channel_place);
+  pthread_mutex_unlock(&mutex_channel);
   //Ne pas oublier de free() si l'on a pas modifié les valeurs
   free(name);
   free(attribute);
@@ -877,7 +902,7 @@ void updateChannel(int dSC, char msg[]){
  * 
  * @param msg Le message qui contient les informations de type @cc name capacity description 
  */
-void addChannel(char msg[]){
+void addChannel(int dSC,char msg[]){
   //On créer une place le sous-string composé du message passé en paramètre sans les 3 caractères de la commande
   int tailleNCD = strlen(msg) - 3 + 1;
   char *nameCapacityDescription = (char*)malloc(tailleNCD);
@@ -890,14 +915,14 @@ void addChannel(char msg[]){
   //On délimite les caractères du name au sein du message
   int j = 0;
   int debutN = 0;
-  while(debutN == 0){
+  while(debutN == 0 && j<tailleNCD){
     if (!(isblank(nameCapacityDescription[j])>0)){
       debutN = j;
     }
     j++;
   }
   int finN = 0 ;
-  while(finN == 0){
+  while(finN == 0 && j<tailleNCD){
     if (isblank(nameCapacityDescription[j])>0){
       finN = j - 1;
     } 
@@ -914,7 +939,7 @@ void addChannel(char msg[]){
   }
 
   int finC = 0 ;
-  while(finC == 0){
+  while(finC == 0 && j < tailleNCD){
     if (isblank(nameCapacityDescription[j])>0){
       finC = j - 1;
     } 
@@ -931,43 +956,53 @@ void addChannel(char msg[]){
     j++;
   }
 
-  
-  //On créer une place pour le name
-  int tailleN = finN - debutN + 1;
-  char *name = (char*)malloc(tailleN + 1);
-  strncpy(name, nameCapacityDescription + debutN, tailleN);
-  name[tailleN] = '\0';
+  if(debutD != 0 && finC !=0 && debutC != 0 && finN != 0 ){//Si la string possède bien le format @cc name capacity description
+    //On créer une place pour le name
+    int tailleN = finN - debutN + 1;
+    char *name = (char*)malloc(tailleN + 1);
+    strncpy(name, nameCapacityDescription + debutN, tailleN);
+    name[tailleN] = '\0';
 
-  //On créer une place pour la capacité
-  int tailleC = finC - debutC + 1;
-  char *capacityChar = (char*)malloc(tailleC + 1);
-  strncpy(capacityChar, nameCapacityDescription + debutC, tailleC);
-  capacityChar[tailleC] = '\0';
-  int capacity = atoi(capacityChar);
+    if(0 == isNameTaken(name)){//Name n'est pas pris
 
-  //On créer une place pour la description
-  int tailleD = strlen(nameCapacityDescription) - debutD + 1;
-  char *description = (char*)malloc(tailleD + 1);
-  strncpy(description, nameCapacityDescription + debutD, tailleD);
-  description[tailleD] = '\0';
+      //On créer une place pour la capacité
+      int tailleC = finC - debutC + 1;
+      char *capacityChar = (char*)malloc(tailleC + 1);
+      strncpy(capacityChar, nameCapacityDescription + debutC, tailleC);
+      capacityChar[tailleC] = '\0';
+      int capacity = atoi(capacityChar);
 
-  //On initialise un channel que l'on sauvegarde dans le tableau des channels
-  struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
-  self->capacity = capacity;
-  self->count = 0;
-  self->name = malloc((strlen(name)+1)*sizeof(char));
-  strcpy(self->name,name);
-  
-  self->description = malloc((strlen(description)+1)*sizeof(char));
-  strcpy(self->description,description);
+      //On créer une place pour la description
+      int tailleD = strlen(nameCapacityDescription) - debutD + 1;
+      char *description = (char*)malloc(tailleD + 1);
+      strncpy(description, nameCapacityDescription + debutD, tailleD);
+      description[tailleD] = '\0';
 
-  self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
-  
-  channels[self->numero] = self;
-  //On augmente le nombre actuel de channel
-  numberOfChannels++;
+      //On initialise un channel que l'on sauvegarde dans le tableau des channels
+      struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
+      self->capacity = capacity;
+      self->count = 0;
+      self->name = malloc((strlen(name)+1)*sizeof(char));
+      strcpy(self->name,name);
+      
+      self->description = malloc((strlen(description)+1)*sizeof(char));
+      strcpy(self->description,description);
 
-  free(capacityChar);
+      self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
+      
+      channels[self->numero] = self;
+      //On augmente le nombre actuel de channel
+      numberOfChannels++;
+
+      free(capacityChar);
+      sendMessage(dSC,"Le channel à été créé avec succès","Erreur send channel successfully created");
+    }else{
+      sendMessage(dSC,"Le nom du channel est déjà pris","Erreur send channel name taken");
+    }
+  }else{//La string ne comporte pas le bon format
+    sendMessage(dSC,"Impossible de créer le channel","Erreur send error create chan");
+  }
+
   free(nameCapacityDescription);
 }
 /**
@@ -981,9 +1016,7 @@ void createChannel(int dSC, char msg[]){
   pthread_mutex_lock(&mutex_channel);
   char reponse[SIZE_MESSAGE];
   if(numberOfChannels < MAX_CHANNEL) {   
-    addChannel(msg);
-    strcpy(reponse,"Le channel à été créé avec succès");
-    sendMessage(dSC,reponse,"Erreur send channel successfully created");
+    addChannel(dSC,msg);
   }else{
     strcpy(reponse,"Impossible de créer le channel, trop de channel");
     sendMessage(dSC,reponse,"Erreur send impossible to create channel");
@@ -1005,7 +1038,8 @@ void deleteChannel(int dSC, char msg[]){
   char *name = (char*)malloc(tailleC);
   strncpy(name, msg + 4, tailleC);
   
-  pthread_mutex_lock(&mutex_channel_place);
+  int done = 0;
+  pthread_mutex_lock(&mutex_channel);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
       if(strcmp(name,channels[i]->name) == 0){
@@ -1025,11 +1059,15 @@ void deleteChannel(int dSC, char msg[]){
         free(channels[i]);
         channels[i] = NULL;
         sendMessage(dSC,"Le channel à été supprimé avec succès", "Erreur message confirmation suppression chan");
+        done = 1;
         break;
       }
     }
   }
-  pthread_mutex_unlock(&mutex_channel_place);
+  if(done == 0){
+    sendMessage(dSC,"Suppression annulé : le channel n'existe pas","Erreur send confirmation suppr chan");
+  }
+  pthread_mutex_unlock(&mutex_channel);
 
 }
 /**
