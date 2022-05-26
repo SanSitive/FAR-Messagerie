@@ -484,18 +484,30 @@ void help(int dSC) {
  * @param dSC 
  */
 void listClients(int dSC) {
-  char all[SIZE_MESSAGE] = "";
+  sendMessage(dSC, "Pseudo              | Salon", "Erreur send entête listClients");
   pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
-        strcat(all, clients[i]->pseudo);
-        strcat(all, "\n");
+        char msg[SIZE_MESSAGE] = "";
+        strcat(msg, clients[i]->pseudo);
+        int size = strlen(clients[i]->pseudo);
+        for(int i=size; i<20; i++)
+          strcat(msg, " ");
+        strcat(msg, "| ");
+        if(clients[i]->channel == NULL) {
+          strcat(msg, "General");
+        }
+        else {
+          pthread_mutex_lock(&mutex_channel);
+          strcat(msg, clients[i]->channel->name);
+          pthread_mutex_unlock(&mutex_channel);
+        }
+        sendMessage(dSC, msg, "Erreur send listClients");
       }
     }
   }
   pthread_mutex_unlock(&mutex_clients);
-  sendMessage(dSC, all, "Erreur send listClients");
 }
 
 /**
@@ -856,7 +868,6 @@ void* client(void * parametres) {
       // Commandes
       else {
         transformCommand(msg);
-        puts(msg);
         //Help
         if(strcmp(msg, "@h") == 0 || strcmp(msg, "@help") == 0) {
           help(dSC);
