@@ -10,3 +10,10 @@ Liste des commandes :
 @channels : liste des channels disponibles
 @jc nomChannel : pour rejoindre un channel
 @dchannel : pour sortir du channel
+@cc (exemple @cc Name Number Description) : pour créer un channel
+@uc (exemple @uc Name Attribute Value) : pour modifier la valeur d'une propriété du channel
+Attribute :
+- capacity : capacité max du channel
+- name : nom du channel
+- description : description du channel
+@sc nomChannel : pour effacer le channel

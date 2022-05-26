@@ -619,6 +619,12 @@ void filesServeur(int dSC){
   }
 }
 
+/**
+ * @brief Fonction qui permet d'afficher tous les channels 
+ *        (Envoi successivement chacun des channels disponibles)
+ * 
+ * @param dSC 
+ */
 void allChannels(int dSC){
   pthread_mutex_lock(&mutex_channel_place);
   for(int i =0; i<MAX_CHANNEL; i++){
@@ -650,21 +656,27 @@ void joinChannel(struct clientStruct* p, char msg[]){
   //On cherche dans la liste des channels, le channel que l'utilisateur a demandé
   for (int i = 0; i < MAX_CHANNEL; i++){
     if(channels[i] != NULL){
-      if (strcmp(channels[i]->name, nomChannel) == 0){
-        //On change le channel actuel du client
-        if(p->channel != NULL){
-          p->channel->count --;
+      if (strcmp(channels[i]->name, nomChannel) == 0 ){
+        if(channels[i]->count < channels[i]->capacity){
+          //On change le channel actuel du client
+          if(p->channel != NULL){
+            p->channel->count --;
+          }
+          p->channel = channels[i];
+          p->channel->count ++;
+          sendMessage(p->dSC, "Channel rejoint !", "Erreur sending join channel");
+          found = 1;
+          break;
+        }else{
+          found = 2;
         }
-        p->channel = channels[i];
-        p->channel->count ++;
-        sendMessage(p->dSC, "Channel rejoint !", "Erreur sending join channel");
-        found = 1;
-        break;
       }
     }
   }
-  if(found != 1){
+  if(found == 0){
     sendMessage(p->dSC,"Ce channel n'existe pas","Erreur sending channel not found");
+  }else if (found == 2){
+    sendMessage(p->dSC,"Ce channel est plein","Erreur sending channel full");
   }
   
 
@@ -695,6 +707,14 @@ void disconnectChannel(struct clientStruct* p){
   pthread_mutex_unlock(&mutex_clients);
 }
 
+/**
+ * @brief Permet d'obtenir la première place non occupé dans le tableau des channels
+ *        Renvoie l'index de la position dans le tableau ou -1 si il n'est pas trouvé
+ * 
+ * @param tab Le tableau dans lequel on cherche la place null
+ * @param taille 
+ * @return int 
+ */
 int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
   int p = -1;
   for(int i=0; i<taille; i++) {
@@ -706,14 +726,138 @@ int getEmptyPositionChannels(struct channelStruct * tab[], int taille) {
   return p;
 }
 
+/**
+ * @brief Update le channel avec les paramètres contenu dans le message
+ *        ex : message = @uc Salon_1 capacity 3 => modifie la proprieté capacity du channel nommé Salon_1
+ * 
+ * @param msg 
+ */
+void updateChannel(int dSC, char msg[]){
+  //On créer une place le sous-string composé du message passé en paramètre sans les 3 caractères de la commande
+  int tailleNAV = strlen(msg) - 3 + 1;
+  char *nameAttributeValue = (char*)malloc(tailleNAV); //string = [::space::]*<name>[::space::]*<attribute>[::space::]*<description>
+  strncpy(nameAttributeValue, msg + 3, tailleNAV);
+
+
+  //On cherche délimite chacune des parties du name, attribute, value of attribute
+  //en se servant des changements entre espaces et caractère non espace
+
+  //On délimite les caractères du name au sein du message
+  int j = 0;
+  int debutN = 0;
+  while(debutN == 0){
+    if (!(isblank(nameAttributeValue[j])>0)){
+      debutN = j;
+    }
+    j++;
+  }
+  int finN = 0 ;
+  while(finN == 0){
+    if (isblank(nameAttributeValue[j])>0){
+      finN = j - 1;
+    } 
+    j++;
+  }
+
+  //On délimite les caractère de l'attribute au sein du message 
+  int debutA = 0;
+  while((debutA == 0) && j < tailleNAV){
+    if (!(isblank(nameAttributeValue[j])>0)){
+      debutA = j;
+    }
+    j++;
+  }
+
+  int finA = 0 ;
+  while(finA == 0){
+    if (isblank(nameAttributeValue[j])>0){
+      finA = j - 1;
+    } 
+    j++;
+  }
+
+  //Cherche le début de la value dans le message
+  //La fin = fin du message
+  int debutV = 0;
+  while((debutV == 0) && j < tailleNAV){
+    if (!(isblank(nameAttributeValue[j])>0)){
+      debutV = j;
+    }
+    j++;
+  }
+
+  
+  //On créer une place pour le name
+  int tailleN = finN - debutN + 1;
+  char *name = (char*)malloc(tailleN + 1);
+  strncpy(name, nameAttributeValue + debutN, tailleN);
+  name[tailleN] = '\0';
+  
+  //On créer une place pour l'attribute
+  int tailleA = finA - debutA + 1;
+  char *attribute = (char*)malloc(tailleA + 1);
+  strncpy(attribute, nameAttributeValue + debutA, tailleA);
+  attribute[tailleA] = '\0';
+  
+
+  //On créer une place pour la value
+  int tailleV = (int)strlen(nameAttributeValue) - debutV + 1;
+  char *value = (char*)malloc(tailleV + 1);
+  strncpy(value, nameAttributeValue + debutV, tailleV);
+  value[tailleV] = '\0';
+  
+
+  //On cherche le channel
+  pthread_mutex_lock(&mutex_channel_place);
+  int find = -1;
+  for(int i = 0; i<MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      if(strcmp(channels[i]->name, name) == 0){
+        find = i;
+        break;
+      }
+    }
+  }
+  //Si le channel à été trouvé
+  if(find != -1){
+    //On modifie la valeur souhaité
+    if(strcmp(attribute,"capacity") == 0){
+      channels[find]->capacity = atoi(value);
+      free(value);
+      sendMessage(dSC,"Capacité max du channel modifiée avec succès", "Erreur send confirmation update");  
+    }else if (strcmp(attribute,"name") == 0){
+      free(channels[find]->name);
+      channels[find]->name = value;
+      sendMessage(dSC,"Nom modifié avec succès", "Erreur send confirmation update");
+    }else if(strcmp(attribute,"description") == 0){
+      free(channels[find]->description);
+      channels[find]->description = value;
+      sendMessage(dSC,"Description modifiée avec succès", "Erreur send confirmation update");
+    }
+  }else{
+    sendMessage(dSC,"Le channel n'a pas été trouvé", "Erreur send confirmation update");
+  }
+  pthread_mutex_unlock(&mutex_channel_place);
+  //Ne pas oublier de free() si l'on a pas modifié les valeurs
+  free(name);
+  free(attribute);
+}
+/**
+ * @brief Découpe le message contenant les informations d'un channel, puis en créé un en utilisant ces paramètres
+ * 
+ * @param msg Le message qui contient les informations de type @cc name capacity description 
+ */
 void addChannel(char msg[]){
-  //On créer une place pour le message et le pseudo
-  //int taillePM = strlen(msg) - 3 + 1;
-  int tailleNCD = strlen(msg) - 9 + 1;
+  //On créer une place le sous-string composé du message passé en paramètre sans les 3 caractères de la commande
+  int tailleNCD = strlen(msg) - 3 + 1;
   char *nameCapacityDescription = (char*)malloc(tailleNCD);
-  //On récupère le pseudo et le message dans un premier temps
   strncpy(nameCapacityDescription, msg + 3, tailleNCD);
-  //On cherche où est l'espace
+
+
+  //On cherche délimite chacune des parties du name, capacity, description
+  //en se servant des changements entre espaces et caractère non espace
+
+  //On délimite les caractères du name au sein du message
   int j = 0;
   int debutN = 0;
   while(debutN == 0){
@@ -730,6 +874,7 @@ void addChannel(char msg[]){
     j++;
   }
 
+  //On délimite les caractère de la capacity au sein du message 
   int debutC = 0;
   while((debutC == 0) && j < tailleNCD){
     if (!(isblank(nameCapacityDescription[j])>0)){
@@ -746,6 +891,8 @@ void addChannel(char msg[]){
     j++;
   }
 
+  //Cherche le début de la description dans le message
+  //La fin = fin du message
   int debutD = 0;
   while((debutD == 0) && j < tailleNCD){
     if (!(isblank(nameCapacityDescription[j])>0)){
@@ -774,6 +921,7 @@ void addChannel(char msg[]){
   strncpy(description, nameCapacityDescription + debutD, tailleD);
   description[tailleD] = '\0';
 
+  //On initialise un channel que l'on sauvegarde dans le tableau des channels
   struct channelStruct * self = (struct channelStruct*) malloc(sizeof(struct channelStruct));
   self->capacity = capacity;
   self->count = 0;
@@ -786,9 +934,19 @@ void addChannel(char msg[]){
   self->numero = getEmptyPositionChannels(channels,MAX_CHANNEL);
   
   channels[self->numero] = self;
+  //On augmente le nombre actuel de channel
   numberOfChannels++;
-}
 
+  free(capacityChar);
+  free(nameCapacityDescription);
+}
+/**
+ * @brief Crée un channel, envoie un message de réussite au client si le channel à bien été créer
+ *        sinon envoie impossible
+ * 
+ * @param dSC 
+ * @param msg 
+ */
 void createChannel(int dSC, char msg[]){
   pthread_mutex_lock(&mutex_channel_file);
   char reponse[SIZE_MESSAGE];
@@ -804,7 +962,46 @@ void createChannel(int dSC, char msg[]){
 
 
 }
+/**
+ * @brief Supprime un channel
+ * 
+ * @param dSC Le dSC du client
+ * @param msg Le message contenant le nom du channel
+ */
+void deleteChannel(int dSC, char msg[]){
 
+  //On créer une place pour le nom du channel que l'on veut rejoindre
+  int tailleC= strlen(msg) - 4 + 1;
+  char *name = (char*)malloc(tailleC);
+  strncpy(name, msg + 4, tailleC);
+  
+  pthread_mutex_lock(&mutex_channel_place);
+  for(int i =0; i<MAX_CHANNEL; i++){
+    if(channels[i] != NULL){
+      if(strcmp(name,channels[i]->name) == 0){
+        pthread_mutex_lock(&mutex_clients);
+        for(int j =0; j<MAX_CLIENTS; j++){
+          if(clients[i] != NULL){
+            if(clients[j]->channel == channels[i]){
+              clients[j]->channel = NULL;
+              sendMessage(clients[j]->dSC,"Le channel dans lequel vous êtes vient d'être supprimé\nVous rejoignez le channel général","Erreur envoi message delete chan");
+            }
+          }
+        }
+        pthread_mutex_unlock(&mutex_clients);
+        //Libère la mémoire associé au channel
+        free(channels[i]->name);
+        free(channels[i]->description);
+        free(channels[i]);
+        channels[i] = NULL;
+        sendMessage(dSC,"Le channel à été supprimé avec succès", "Erreur message confirmation suppression chan");
+        break;
+      }
+    }
+  }
+  pthread_mutex_unlock(&mutex_channel_place);
+
+}
 /**
  * @brief Fonction des threads clients, elle gère la réception d'un message envoyé par le client au serveur,
  *        et envoie ce message aux autres clients
@@ -870,6 +1067,10 @@ void* client(void * parametres) {
         }//Pour créer un channel
         else if(msg[0] == '@' && msg[1] == 'c' && msg[2] == 'c' && isblank(msg[3])>0){
           createChannel(dSC,msg);
+        }else if(msg[0] == '@' && msg[1] == 's' && msg[2] == 'c'){
+          deleteChannel(dSC,msg);
+        }else if (msg[0] == '@' && msg[1] == 'u' && msg[2] == 'c'){
+          updateChannel(dSC,msg); 
         }//Si la commande n'existe pas
         else {
           sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
