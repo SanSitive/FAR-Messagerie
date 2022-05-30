@@ -274,7 +274,7 @@ int isPseudoTaken(char pseudo[]) {
  * @param name
  * @return int 
  */
-int isNameTaken(char name[]) {
+int isChannelNameTaken(char name[]) {
   int res = 0;
   for(int i=0; i<MAX_CHANNEL; i++) {
     if(channels[i] != NULL) {
@@ -568,7 +568,7 @@ void dm(struct clientStruct* p, char msg[]) {
     j++;
   }
   
-  if(debutP != -1 && finP != 0 && debutM != 0){//Le format de la commande a été respecté
+  if(debutP != -1 && finP != 0 && debutM != 0 && debutM != (int)strlen(pseudoMessage)){//Le format de la commande a été respecté
     //On créer une place pour le pseudo
     int tailleP = finP - debutP + 1;
     char *pseudo = (char*)malloc(tailleP + 1);
@@ -625,7 +625,7 @@ void dm(struct clientStruct* p, char msg[]) {
     free(pseudo);
     free(message);
   }else{
-    sendMessage(p->dSC,"La commande ne s'est pas exécuté car vous ne respectez pas le bon format", "Erreur send bad format");
+    sendMessage(p->dSC,"Le format de la commande n'est pas respecté", "Erreur send bad format");
   }
 }
 
@@ -799,22 +799,22 @@ void updateChannel(int dSC, char msg[]){
 
   //On délimite les caractères du name au sein du message
   int j = 0;
-  int debutN = 0;
-  while(debutN == 0){
+  int debutN = -1;
+  while(debutN == -1 && j<tailleNAV){
     if (!(isblank(nameAttributeValue[j])>0)){
       debutN = j;
     }
     j++;
   }
   int finN = 0 ;
-  while(finN == 0){
+  while(finN == 0 && j<tailleNAV){
     if (isblank(nameAttributeValue[j])>0){
       finN = j - 1;
     } 
     j++;
   }
 
-  //On délimite les caractère de l'attribute au sein du message 
+  //On délimite les caractère de l'attribut au sein du message 
   int debutA = 0;
   while((debutA == 0) && j < tailleNAV){
     if (!(isblank(nameAttributeValue[j])>0)){
@@ -824,7 +824,7 @@ void updateChannel(int dSC, char msg[]){
   }
 
   int finA = 0 ;
-  while(finA == 0){
+  while(finA == 0 && j<tailleNAV){
     if (isblank(nameAttributeValue[j])>0){
       finA = j - 1;
     } 
@@ -837,65 +837,73 @@ void updateChannel(int dSC, char msg[]){
   while((debutV == 0) && j < tailleNAV){
     if (!(isblank(nameAttributeValue[j])>0)){
       debutV = j;
+      break;
     }
-    j++;
+    j++;  
   }
 
-  
-  //On créer une place pour le name
-  int tailleN = finN - debutN + 1;
-  char *name = (char*)malloc(tailleN + 1);
-  strncpy(name, nameAttributeValue + debutN, tailleN);
-  name[tailleN] = '\0';
-  
-  //On créer une place pour l'attribute
-  int tailleA = finA - debutA + 1;
-  char *attribute = (char*)malloc(tailleA + 1);
-  strncpy(attribute, nameAttributeValue + debutA, tailleA);
-  attribute[tailleA] = '\0';
-  
+  if(debutN != -1 && finN != 0 && debutA != 0 && finA != 0 && debutV != 0 && debutV != (int)strlen(nameAttributeValue)){//Respecte le bon format de command
+    //On créer une place pour le name
+    int tailleN = finN - debutN + 1;
+    char *name = (char*)malloc(tailleN + 1);
+    strncpy(name, nameAttributeValue + debutN, tailleN);
+    name[tailleN] = '\0';
+    
+    //On créer une place pour l'attribute
+    int tailleA = finA - debutA + 1;
+    char *attribute = (char*)malloc(tailleA + 1);
+    strncpy(attribute, nameAttributeValue + debutA, tailleA);
+    attribute[tailleA] = '\0';
+    
 
-  //On créer une place pour la value
-  int tailleV = (int)strlen(nameAttributeValue) - debutV + 1;
-  char *value = (char*)malloc(tailleV + 1);
-  strncpy(value, nameAttributeValue + debutV, tailleV);
-  value[tailleV] = '\0';
-  
+    //On créer une place pour la value
+    int tailleV = (int)strlen(nameAttributeValue) - debutV + 1;
+    char *value = (char*)malloc(tailleV + 1);
+    strncpy(value, nameAttributeValue + debutV, tailleV);
+    value[tailleV] = '\0';
+    
 
-  //On cherche le channel
-  pthread_mutex_lock(&mutex_channel);
-  int find = -1;
-  for(int i = 0; i<MAX_CHANNEL; i++){
-    if(channels[i] != NULL){
-      if(strcmp(channels[i]->name, name) == 0){
-        find = i;
-        break;
+    //On cherche le channel
+    pthread_mutex_lock(&mutex_channel);
+    int find = -1;
+    for(int i = 0; i<MAX_CHANNEL; i++){
+      if(channels[i] != NULL){
+        if(strcmp(channels[i]->name, name) == 0){
+          find = i;
+          break;
+        }
       }
     }
-  }
-  //Si le channel à été trouvé
-  if(find != -1){
-    //On modifie la valeur souhaité
-    if(strcmp(attribute,"capacity") == 0){
-      channels[find]->capacity = atoi(value);
-      free(value);
-      sendMessage(dSC,"Capacité max du channel modifiée avec succès", "Erreur send confirmation update");  
-    }else if (strcmp(attribute,"name") == 0){
-      free(channels[find]->name);
-      channels[find]->name = value;
-      sendMessage(dSC,"Nom modifié avec succès", "Erreur send confirmation update");
-    }else if(strcmp(attribute,"description") == 0){
-      free(channels[find]->description);
-      channels[find]->description = value;
-      sendMessage(dSC,"Description modifiée avec succès", "Erreur send confirmation update");
+    //Si le channel à été trouvé
+    if(find != -1){
+      //On modifie la valeur souhaité
+      if(strcmp(attribute,"capacity") == 0){
+        channels[find]->capacity = atoi(value);
+        free(value);
+        sendMessage(dSC,"Capacité max du channel modifiée avec succès", "Erreur send confirmation update");  
+      }else if (strcmp(attribute,"name") == 0){
+        if(0 == isChannelNameTaken(value)){
+          free(channels[find]->name);
+          channels[find]->name = value;
+          sendMessage(dSC,"Nom modifié avec succès", "Erreur send confirmation update");
+        }else{
+          sendMessage(dSC,"Nom de channel déjà utilisé","Erreur send @uc channel name used");
+        }
+      }else if(strcmp(attribute,"description") == 0){
+        free(channels[find]->description);
+        channels[find]->description = value;
+        sendMessage(dSC,"Description modifiée avec succès", "Erreur send confirmation update");
+      }
+    }else{
+      sendMessage(dSC,"Le channel n'a pas été trouvé", "Erreur send confirmation update");
     }
+    pthread_mutex_unlock(&mutex_channel);
+    //Ne pas oublier de free() si l'on a pas modifié les valeurs
+    free(name);
+    free(attribute);
   }else{
-    sendMessage(dSC,"Le channel n'a pas été trouvé", "Erreur send confirmation update");
+    sendMessage(dSC,"Le format de la commande n'est pas respecté","Erreur send @uc command format");
   }
-  pthread_mutex_unlock(&mutex_channel);
-  //Ne pas oublier de free() si l'on a pas modifié les valeurs
-  free(name);
-  free(attribute);
 }
 /**
  * @brief Découpe le message contenant les informations d'un channel, puis en créé un en utilisant ces paramètres
@@ -963,7 +971,7 @@ void addChannel(int dSC,char msg[]){
     strncpy(name, nameCapacityDescription + debutN, tailleN);
     name[tailleN] = '\0';
 
-    if(0 == isNameTaken(name)){//Name n'est pas pris
+    if(0 == isChannelNameTaken(name)){//Name n'est pas pris
 
       //On créer une place pour la capacité
       int tailleC = finC - debutC + 1;
@@ -1000,7 +1008,7 @@ void addChannel(int dSC,char msg[]){
       sendMessage(dSC,"Le nom du channel est déjà pris","Erreur send channel name taken");
     }
   }else{//La string ne comporte pas le bon format
-    sendMessage(dSC,"Impossible de créer le channel","Erreur send error create chan");
+    sendMessage(dSC,"Le format de la commande n'est pas respecté","Erreur send error create chan");
   }
 
   free(nameCapacityDescription);

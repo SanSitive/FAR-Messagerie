@@ -1,4 +1,3 @@
 Salon_1
 Salon_2
-test
 END
