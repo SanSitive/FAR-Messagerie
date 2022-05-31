@@ -227,7 +227,7 @@ void choosePseudo(char m[]) {
  */
 void* cleaner() {
   while(1) {
-    // On attends qu'un thread file se ferme
+    // On attend qu'un thread file se ferme
     if(sem_wait(&sem_thread_files) == 1){
       perror("Erreur wait sémaphore client");exit(1);
     }
@@ -275,7 +275,7 @@ void* receiveFileProcess(void * parametres){
       sendMessage(dSF, f->filename, "Erreur send filename");
       // On attends que le serveur nous dis si le fichier n'existe pas
       recvMessage(dSF, m, "Erreur file filename");
-
+      
       if(strcmp(m, "FileNotExists") == 0){
         printf("@rcvf : Le fichier %s n'existe pas dans le serveur.\n", f->filename);
       }
@@ -651,7 +651,13 @@ void launchClient(int dS) {
     exit(EXIT_SUCCESS);
   }
 }
-
+/**
+ * @brief Main
+ * 
+ * @param argc 
+ * @param argv 
+ * @return int 
+ */
 int main(int argc, char *argv[]) {
 
   if(argc != 3){
