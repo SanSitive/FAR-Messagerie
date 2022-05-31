@@ -754,6 +754,7 @@ void disconnectChannel(struct clientStruct* p){
   if (p->channel == NULL){
     sendMessage(p->dSC, "Vous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
   }else{
+    p->channel->count--;
     p->channel = NULL;
     sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
   }
@@ -964,7 +965,7 @@ void addChannel(int dSC,char msg[]){
     j++;
   }
 
-  if(debutD != 0 && finC !=0 && debutC != 0 && finN != 0 ){//Si la string possède bien le format @cc name capacity description
+  if(debutD != 0 && finC !=0 && debutC != 0 && finN != 0 && debutD != (int)strlen(nameCapacityDescription)){//Si la string possède bien le format @cc name capacity description
     //On créer une place pour le name
     int tailleN = finN - debutN + 1;
     char *name = (char*)malloc(tailleN + 1);
