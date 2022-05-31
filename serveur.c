@@ -257,7 +257,7 @@ int isPseudoTaken(char pseudo[]) {
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
-        if(strcmp(pseudo, clients[i]->pseudo) == 0) {
+        if(strcmp(pseudo, clients[i]->pseudo) == 0) {//Pseudo trouvé
           res = 1;
           break;
         }
@@ -279,7 +279,7 @@ int isChannelNameTaken(char name[]) {
   for(int i=0; i<MAX_CHANNEL; i++) {
     if(channels[i] != NULL) {
       if(channels[i]->name != NULL) {
-        if(strcmp(name, channels[i]->name) == 0) {
+        if(strcmp(name, channels[i]->name) == 0) {//Nom du channel trouvé
           res = 1;
           break;
         }
@@ -684,8 +684,10 @@ void allChannels(int dSC){
   pthread_mutex_lock(&mutex_channel);
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
+      char temp[strlen(channels[i]->name)];
+      strcpy(temp,channels[i]->name);
       char msg[SIZE_MESSAGE];
-      sprintf(msg, "Utilisateurs : %d/%d : %s",channels[i]->count,channels[i]->capacity,channels[i]->name);
+      sprintf(msg, "%s : %d/%d",temp,channels[i]->count,channels[i]->capacity);//Envoie le nom du channel et le nombre de personnes connectées
       sendMessage(dSC,msg,"Erreur envoi channel");
     }
   }
@@ -728,9 +730,9 @@ void joinChannel(struct clientStruct* p, char msg[]){
       }
     }
   }
-  if(found == 0){
+  if(found == 0){//Si le channel n'est pas trouvé
     sendMessage(p->dSC,"Ce channel n'existe pas","Erreur sending channel not found");
-  }else if (found == 2){
+  }else if (found == 2){//Si le channel est plein
     sendMessage(p->dSC,"Ce channel est plein","Erreur sending channel full");
   }
   
@@ -1024,9 +1026,9 @@ void addChannel(int dSC,char msg[]){
 void createChannel(int dSC, char msg[]){
   pthread_mutex_lock(&mutex_channel);
   char reponse[SIZE_MESSAGE];
-  if(numberOfChannels < MAX_CHANNEL) {   
+  if(numberOfChannels < MAX_CHANNEL) {   //Si le nombre de channel actuel permet d'en créer un nouveau
     addChannel(dSC,msg);
-  }else{
+  }else{//Sinon
     strcpy(reponse,"Impossible de créer le channel, trop de channel");
     sendMessage(dSC,reponse,"Erreur send impossible to create channel");
   }
@@ -1055,7 +1057,7 @@ void deleteChannel(int dSC, char msg[]){
         pthread_mutex_lock(&mutex_clients);
         for(int j =0; j<MAX_CLIENTS; j++){
           if(clients[i] != NULL){
-            if(clients[j]->channel == channels[i]){
+            if(clients[j]->channel == channels[i]){//Si la personne est connecté au salon que l'on veut supprimer
               clients[j]->channel = NULL;
               sendMessage(clients[j]->dSC,"Le channel dans lequel vous êtes vient d'être supprimé\nVous rejoignez le channel général","Erreur envoi message delete chan");
             }
@@ -1403,7 +1405,7 @@ void* cleanerFiles() {
  */
 void* cleanerClients(){
   while(1){
-    // On attends qu'un thread client se ferme
+    // On attend qu'un thread client se ferme
     if(sem_wait(&sem_thread) == 1){
       perror("Erreur wait sémaphore client");exit(1);
     }
@@ -1437,8 +1439,10 @@ void addFileSocket(int dSF) {
   self->dSF = dSF;
   self->filename = NULL; // Pas encore reçu les infos
   self->size = 0;
-  //Faire un mutex
+  
+  pthread_mutex_lock(&mutex_file);
   self->numero = getEmptyPositionFile(files, MAX_FILES);
+  pthread_mutex_unlock(&mutex_file);
 
   files[self->numero] = self;
   sendMessage(dSF, "OK", "Erreur send connexion File");
@@ -1545,7 +1549,7 @@ void initChannels() {
       strncat(chan,&ch,1);
       count++;
 
-      if(strcmp(chan,"END") == 0){
+      if(strcmp(chan,"END") == 0){//Si c'est la dernière ligne du fichier
         strcpy(chan,"");
         count = 0;
         END = 1;
