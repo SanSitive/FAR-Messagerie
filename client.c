@@ -623,7 +623,13 @@ void launchClient(int dS) {
     exit(EXIT_SUCCESS);
   }
 }
-
+/**
+ * @brief Main
+ * 
+ * @param argc 
+ * @param argv 
+ * @return int 
+ */
 int main(int argc, char *argv[]) {
 
   if(argc != 3){
