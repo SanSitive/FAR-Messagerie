@@ -1,19 +1,21 @@
 Liste des commandes :
-
-@h | help : liste des commandes
-@a | all : liste des clients
-@d | disconnect : déconnexion
-@mp | @dm (exemple @mp User Message) : message privé
-@serveurfiles : liste les fichiers disponibles sur le serveur
-@sendfile : envoie un fichier au serveur
-@rcvf nomfichier : récupération du fichier demandé
-@channels : liste des channels disponibles
-@jc nomChannel : pour rejoindre un channel
-@dchannel : pour sortir du channel
-@cc (exemple @cc Name Number Description) : pour créer un channel
-@uc (exemple @uc Name Attribute Value) : pour modifier la valeur d'une propriété du channel
-Attribute :
-- capacity : capacité max du channel
-- name : nom du channel
-- description : description du channel
-@sc nomChannel : pour effacer le channel
+    - @h | help : donne la liste des commandes
+    - @a | all : donne la liste des clients connectés
+    - @d | disconnect : déconnexion
+    - @mp | @dm : envoie un message privé à un utilisateur connecté
+      exemple : @mp pseudoUser Message
+    - @serveurfiles : donne la liste des fichiers disponibles sur le serveur
+    - @sendfile : envoie un fichier au serveur
+    - @rcvf nomfichier : récupère un fihcier du serveur dans le répertoire client
+    - @channels : donne la liste des channels disponibles
+    - @jc nomChannel : pour rejoindre un channel
+    - @dchannel : pour sortir d'un channel
+    - @cc nameChannel capacityChannel descriptionChannel : pour créer un channel
+      exemple : @cc channel1 10 Il est trop cool!
+    - @uc nameChannel Attribute newValue : pour modifier la valeur d'une propriété du channel
+      Attribute :
+        - capacity : capacité max du channel
+        - name : nom du channel
+        - description : description du channel
+      exemple : @uc channel1 capacity 20
+    - @sc nomChannel : pour supprimer le channel
