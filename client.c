@@ -40,6 +40,36 @@ struct fileStruct {
 };
 
 /**
+ * @brief Affiche un message en rouge
+ * 
+ * @param m Message
+ */
+void putsRed(char m[]) {
+  printf("%s", "\e[1;31m");
+  printf("%s", m);
+  puts("\e[0m");
+}
+/**
+ * @brief Affiche un message en bleu
+ *
+ * @param m Message
+ */
+void putsBlue(char m[]) {
+  printf("%s", "\e[1;34m");
+  printf("%s", m);
+  puts("\e[0m");
+}
+/**
+ * @brief Affiche un message en rose
+ *
+ * @param m Message
+ */
+void putsPink(char m[]) {
+  printf("%s", "\e[1;95m");
+  printf("%s", m);
+  puts("\e[0m");
+}
+/**
  * @brief Envoie un message au socket indiqué, et affiche l'erreur passé en paramètre s'il y a une erreur
  * 
  * @param dS 
@@ -110,7 +140,7 @@ void stopClient(int dS) {
 
   // Préviens le serveur
   sendMessage(dS, "@disconnect", "Erreur send disconnect");
-  puts("Fin du client");
+  putsBlue("Fin du client");
   if(-1 == shutdown(dS,2)) {
     perror("Erreur shutdown dS");exit(1);
   }
@@ -170,21 +200,21 @@ void choosePseudo(char m[]) {
   // Choix du pseudo
   int verif = 0;
   do {
-    puts("Choisissez un pseudo :");
+    putsPink("Choisissez un pseudo :");
     fgets(m, SIZE_MESSAGE, stdin);
   
     verif = verifPseudo(m);
     if(verif==1) {
-      puts("Le pseudo est trop petit, réessayez :");
+      putsRed("Le pseudo est trop petit, réessayez :");
     }
     else if(verif == 2) {
-      printf("Le pseudo est trop grand (supérieur à %d), réessayez :\n", SIZE_PSEUDO);
+      printf("\e[1;31mLe pseudo est trop grand (supérieur à %d), réessayez :\e[0m\n", SIZE_PSEUDO);
     }
     else if(verif == 3) {
-      puts("Le pseudo ne doit pas commencer par @");
+      putsRed("Le pseudo ne doit pas commencer par @");
     }
     else if(verif == 4) {
-      puts("Le pseudo ne doit pas contenir d'espace, réessayez :");
+      putsRed("Le pseudo ne doit pas contenir d'espace, réessayez :");
     }
   }
   while(verif != 0);
@@ -495,14 +525,14 @@ void selectFile(){
       if(nb_file > 0){
         char *tab_file[nb_file];
         nb_file = 0;
-        puts("Veuillez entrer le numéro associé au fichier pour l'envoyer");
-        puts(" 0 : Annuler l'envoi");
+        putsPink("Veuillez entrer le numéro associé au fichier pour l'envoyer");
+        putsPink(" 0 : Annuler l'envoi");
         rewinddir(dir);
         while ((ent = readdir(dir)) != NULL) {
           if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
             tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
             strcpy(tab_file[nb_file],ent->d_name);
-            printf(" %d : %s \n",nb_file + 1,tab_file[nb_file]);
+            printf("\e[1;95m %d : %s \e[0m\n",nb_file + 1,tab_file[nb_file]);
             nb_file++;
           }
         }
@@ -513,23 +543,23 @@ void selectFile(){
         if(input > 0 && input <= nb_file){
           char *file_name = (char*) malloc(strlen(tab_file[input - 1]) + 1);
           strcpy(file_name, tab_file[input - 1]);
-          printf("Le fichier sélectionné est : %s\n",file_name);
+          printf("\e[1;34mLe fichier sélectionné est : %s\e[0m\n",file_name);
           for(int i=0; i<nb_file; i++){
             free(tab_file[i]);
           }
           sendFile(file_name);
         }else{
-          puts("Sélection annulée");
+          putsPink("Sélection annulée");
         }
       }else{
-        puts("Aucun fichier dans le dossier \"download_client\"");
+        putsRed("Aucun fichier dans le dossier \"download_client\"");
       }
     }else{
       perror("Erreur open download_client");exit(1);
     }
   }
   else {
-    printf("Vous essayez déjà d'envoyer le nombre maximum de fichiers (%d)\n", MAX_FILES);
+    printf("\e[1;34mVous essayez déjà d'envoyer ou de télécharger le nombre maximum de fichiers (%d)\e[0m\n", MAX_FILES);
   }
 }
 
@@ -560,10 +590,7 @@ void pereSend(int dS) {
         if(-1 == s) {
           perror("Erreur send");exit(1);
         }
-        // Non déconnecté
-        else if(s != 0) {
-          puts("Message Envoyé");
-        }
+        puts("");
       }
     }
   } while(strcmp(m, "@d\n")!=0 && strcmp(m, "@disconnect\n")!=0 && s!=0);
@@ -585,7 +612,8 @@ void filsRecv(int dS) {
     }
     // Non déconnecté
     else if(r != 0) {
-      puts(reception);
+      printf("%s", reception);
+      puts("\e[0m");
     }
     if(strcmp(reception, "@d\n") == 0 || strcmp(reception, "@disconnect\n") ==0 || r==0){
       fini = 1;
@@ -644,7 +672,7 @@ int main(int argc, char *argv[]) {
   recvMessage(dS, m, "Erreur connexion au serveur");
 
   if(strcmp(m, "OK") == 0) {
-    puts("Connexion réussie");
+    putsBlue("Connexion réussie");
     
     // Choix du pseudo
     choosePseudo(m);
@@ -653,15 +681,15 @@ int main(int argc, char *argv[]) {
 
     // Si pseudo accepté
     if(strcmp(m, "OK") == 0) {
-      puts("Login réussi");
+      putsBlue("Login réussi");
       launchClient(dS);
     }
     else if(strcmp(m, "PseudoTaken") == 0) {
-      puts("Ce pseudo est déjà pris");
+      putsRed("Ce pseudo est déjà pris");
     }
   }
   else {
-    puts("Le socket n'a pas pu se connecter au serveur");
+    putsRed("Le socket n'a pas pu se connecter au serveur");
   }
 
   exit(EXIT_SUCCESS);

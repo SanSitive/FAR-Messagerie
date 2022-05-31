@@ -330,9 +330,17 @@ int login(int dSC, struct clientStruct * p) {
 void clientToAll(struct clientStruct* p, char msg[]) {
   char msgPseudo[SIZE_MESSAGE];
   pthread_mutex_lock(&mutex_clients);
-  strcpy(msgPseudo, p->pseudo);
+  pthread_mutex_lock(&mutex_channel);
+  strcpy(msgPseudo, "[\e[1;33m");
+  if(p->channel != NULL)
+    strcat(msgPseudo, p->channel->name);
+  else
+    strcat(msgPseudo, "Général");
+  strcat(msgPseudo, "\e[0m] \e[1;36m");
+  strcat(msgPseudo, p->pseudo);
   pthread_mutex_unlock(&mutex_clients);
-  strcat(msgPseudo, " : ");
+  pthread_mutex_unlock(&mutex_channel);
+  strcat(msgPseudo, "\e[0m : \e[0;37m");
   int sizeMsgPseudo = strlen(msgPseudo);
   int sizeMsg = strlen(msg) + 1;
 
@@ -343,7 +351,7 @@ void clientToAll(struct clientStruct* p, char msg[]) {
     char msgToSend[SIZE_MESSAGE];
     strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
     msgToSend[sizeMsgPseudo] = '\0';
-    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
+    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend l'entête qu'on a ajouté)
     if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
       int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
       strncat(msgToSend, msg+nbSend, sizeToSend);
@@ -355,12 +363,11 @@ void clientToAll(struct clientStruct* p, char msg[]) {
       strcat(msgToSend, msg+nbSend);
       nbSend = toSend;
     }
-    printf("\n%s\n", msgToSend);
     //On envoie le message aux autres clients
     pthread_mutex_lock(&mutex_clients);
     for(int i = 0; i<MAX_CLIENTS; i++) {
       if(clients[i] != NULL) {
-        if(clients[i]->channel == NULL){
+        if(clients[i]->channel == p->channel){
           if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
             sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
           }
@@ -373,57 +380,6 @@ void clientToAll(struct clientStruct* p, char msg[]) {
   pthread_mutex_unlock(&mutex_clients);
 }
 
-/**
- * @brief Fonction qui va envoyer le message du client aux autres clients présents dans le channel
- * 
- * @param p 
- * @param msg 
- */
-void clientToChannel(struct clientStruct* p, char msg[]){
-  char msgPseudo[SIZE_MESSAGE];
-  pthread_mutex_lock(&mutex_clients);
-  strcpy(msgPseudo, p->pseudo);
-  pthread_mutex_unlock(&mutex_clients);
-  strcat(msgPseudo, " : ");
-  int sizeMsgPseudo = strlen(msgPseudo);
-  int sizeMsg = strlen(msg) + 1;
-
-  int toSend = sizeMsg;
-  int nbSend = 0;
-  //Tant qu'on a pas envoyé le message en entier
-  while(toSend > nbSend) {
-    char msgToSend[SIZE_MESSAGE];
-    strncpy(msgToSend, msgPseudo, sizeMsgPseudo);
-    msgToSend[sizeMsgPseudo] = '\0';
-    //Si ce qu'il reste à envoyer dépasse la taille disponible (taille totale disponible - la taille que prend le pseudo + ':')
-    if(toSend - nbSend > SIZE_MESSAGE - sizeMsgPseudo) {
-      int sizeToSend = (SIZE_MESSAGE - sizeMsgPseudo) - 1; // -1 pour pouvoir mettre '\0'
-      strncat(msgToSend, msg+nbSend, sizeToSend);
-      msgToSend[SIZE_MESSAGE-1] = '\0';
-      nbSend += sizeToSend;
-    }
-    //Sinon on peut directement ajouter ce qu'il reste
-    else {
-      strcat(msgToSend, msg+nbSend);
-      nbSend = toSend;
-    }
-    printf("\n%s\n", msgToSend);
-    //On envoie le message aux autres clients
-    pthread_mutex_lock(&mutex_clients);
-    for(int i = 0; i<MAX_CLIENTS; i++) {
-      if(clients[i] != NULL) {
-        if (clients[i]->channel == p->channel){
-          if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) {
-            sendMessage(clients[i]->dSC, msgToSend, "Erreur send clientToAll");
-          }
-        }
-      }
-    }
-    pthread_mutex_unlock(&mutex_clients);
-  }
-
-  pthread_mutex_unlock(&mutex_clients);
-}
 
 /**
  * @brief Transforme une chaîne de caractère pour enlever les majuscules(pour ce qui suit directement @, pas les paramètres), 
@@ -1101,12 +1057,8 @@ void* client(void * parametres) {
       
       // Message normal, on envoie aux autres clients 
       if(msg[0] != '@') {
-        //si le client est dans le channel général, on envoie à tout le monde
-        if(p->channel == NULL){
-          clientToAll(p, msg);
-        }else{ //Si le client est dans un channel, on envoie seulement aux membres du channels
-          clientToChannel(p, msg);
-        }
+        //On envoie à tous les utilisateurs du même channel
+        clientToAll(p, msg);
       }
       // Commandes
       else {
