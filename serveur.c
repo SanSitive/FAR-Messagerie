@@ -1011,7 +1011,7 @@ void deleteChannel(int dSC, char msg[]){
       if(strcmp(name,channels[i]->name) == 0){
         pthread_mutex_lock(&mutex_clients);
         for(int j =0; j<MAX_CLIENTS; j++){
-          if(clients[i] != NULL){
+          if(clients[j] != NULL){
             if(clients[j]->channel == channels[i]){//Si la personne est connecté au salon que l'on veut supprimer
               clients[j]->channel = NULL;
               sendMessage(clients[j]->dSC,"\e[1;92mLe channel dans lequel vous êtes vient d'être supprimé\nVous rejoignez le channel général","Erreur envoi message delete chan");
