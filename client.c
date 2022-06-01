@@ -323,7 +323,7 @@ void* receiveFileProcess(void * parametres){
                 }
               } while(sizeToGet > 0);
               if(size - dataTotal <= 0) {
-                printf("\e[1;34mLe fichier %s a bien été enregistré dans le dossier /download_client de l'application\n", f->filename);
+                printf("\e[1;34mLe fichier %s a bien été enregistré dans le dossier /download_client de l'application\e[0m\n", f->filename);
               }
             }
             fclose(fp);
@@ -355,7 +355,6 @@ void* sendFileProcess(void * parametres) {
 
   struct stat st;
   char path[SIZE_MESSAGE] = "./download_client/";
-  strcat(path, f->filename);
 
   if(stat(path, &st) == -1){
     putsRed("Erreur lors de la lecture du fichier. Veuillez réessayer.");
@@ -417,7 +416,7 @@ void* sendFileProcess(void * parametres) {
                 free(data);
               }
               if(strcmp(m, "OK") == 0) {
-                printf("\e[1;34mLe fichier %s a bien été envoyé sur le serveur\n", f->filename);
+                printf("\e[1;34mLe fichier %s a bien été envoyé sur le serveur\e[0m\n", f->filename);
               }
               else {
                 putsRed("Une erreur s'est produite, le fichier n'a pas pu être envoyé");

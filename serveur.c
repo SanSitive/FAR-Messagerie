@@ -329,6 +329,7 @@ int login(int dSC, struct clientStruct * p) {
  */
 void clientToAll(struct clientStruct* p, char msg[]) {
   char msgPseudo[SIZE_MESSAGE];
+  //Contruction de l'entête [channel] pseudo :
   pthread_mutex_lock(&mutex_clients);
   pthread_mutex_lock(&mutex_channel);
   strcpy(msgPseudo, "[\e[1;33m");
@@ -338,9 +339,10 @@ void clientToAll(struct clientStruct* p, char msg[]) {
     strcat(msgPseudo, "Général");
   strcat(msgPseudo, "\e[0m] \e[1;36m");
   strcat(msgPseudo, p->pseudo);
+  strcat(msgPseudo, "\e[0m : \e[0;37m");
   pthread_mutex_unlock(&mutex_clients);
   pthread_mutex_unlock(&mutex_channel);
-  strcat(msgPseudo, "\e[0m : \e[0;37m");
+
   int sizeMsgPseudo = strlen(msgPseudo);
   int sizeMsg = strlen(msg) + 1;
 
@@ -423,7 +425,7 @@ void help(int dSC) {
   //Gestion erreur fopen 
   if (fileSource == NULL){
     //On averti le client
-    sendMessage(dSC, "Erreur de la commande help, veuillez réessayer.", "Erreur sending erreur with fopen");
+    sendMessage(dSC, "\e[1;31mErreur de la commande help, veuillez réessayer.", "Erreur sending erreur with fopen");
   }else{ //pas d'erreur
     char ch;
     char help[SIZE_MESSAGE];
@@ -528,8 +530,9 @@ void dm(struct clientStruct* p, char msg[]) {
     }
     j++;
   }
-  
-  if(debutP != -1 && finP != 0 && debutM != 0 && debutM != (int)strlen(pseudoMessage)){//Le format de la commande a été respecté
+
+  //Le format de la commande a été respecté, on envoie
+  if(debutP != -1 && finP != 0 && debutM != 0 && debutM != (int)strlen(pseudoMessage)){
     //On créer une place pour le pseudo
     int tailleP = finP - debutP + 1;
     char *pseudo = (char*)malloc(tailleP + 1);
@@ -541,16 +544,32 @@ void dm(struct clientStruct* p, char msg[]) {
     strncpy(message, pseudoMessage + debutM, tailleM);
     message[tailleM] = '\0';
 
+    //Construction de l'entête [MP][channel] pseudo :
+    pthread_mutex_lock(&mutex_clients);
+    pthread_mutex_lock(&mutex_channel);
+    char entete[SIZE_MESSAGE];
+    strcpy(entete, "[\e[1;33mMP\e[0m][\e[1;33m");
+    strcat(entete, "\e[1;33m");
+    if(p->channel != NULL)
+      strcat(entete, p->channel->name);
+    else
+      strcat(entete, "Général");
+    strcat(entete, "\e[0m] \e[1;36m");
+    strcat(entete, p->pseudo);
+    strcat(entete, "\e[0m : \e[0;37m");
+    pthread_mutex_unlock(&mutex_clients);
+    pthread_mutex_unlock(&mutex_channel);
+
     //On cherche le pseudo dans la liste des pseudos existants 
     pthread_mutex_lock(&mutex_clients);
     int error = 1;
 
-    //Si le client s'envoie un message à lui même
+    //Si le client s'envoie un message à lui-même
     if(strcmp(p->pseudo, pseudo) == 0){
       error = 2;
     }
     //Si la taille du message en comptant le pseudo est trop grande
-    else if(strlen(p->pseudo) + strlen(" (mp) : ") + strlen(message) > SIZE_MESSAGE) {
+    else if(strlen(entete) + strlen(message) > SIZE_MESSAGE) {
       error = 3;
     }
     else{
@@ -559,8 +578,7 @@ void dm(struct clientStruct* p, char msg[]) {
           if(p->dSC != clients[i]->dSC && clients[i]->pseudo != NULL) { //On vérifie que le client est connecté
             if(strcmp(pseudo, clients[i]->pseudo) == 0){
               char msgComplet[SIZE_MESSAGE];
-              strcpy(msgComplet, p->pseudo);
-              strcat(msgComplet, " (mp) : ");
+              strcpy(msgComplet, entete);
               strcat(msgComplet, message);
               sendMessage(clients[i]->dSC, msgComplet, "Erreur send dm");
               error = 0;
@@ -572,12 +590,12 @@ void dm(struct clientStruct* p, char msg[]) {
     }
     //Si le pseudo n'appartient à personne
     if(error == 1) {
-      sendMessage(p->dSC, "Cet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
+      sendMessage(p->dSC, "\e[1;31mCet utilisateur n'existe pas ou n'est pas connecté", "Erreur send erreur dm found == 0");
     }else if(error == 2){
-      sendMessage(p->dSC, "Vous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
+      sendMessage(p->dSC, "\e[1;31mVous ne pouvez pas vous envoyer un message à vous même", "Erreur send erreur dm found == 2");
     }
     else if(error == 3) {
-      sendMessage(p->dSC, "La taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
+      sendMessage(p->dSC, "\e[1;31mLa taille de votre message est trop grande, réduisez la ou envoyez en plusieurs fois", "Erreur send erreur dm found == 2");
     }
 
     pthread_mutex_unlock(&mutex_clients);
@@ -586,7 +604,7 @@ void dm(struct clientStruct* p, char msg[]) {
     free(pseudo);
     free(message);
   }else{
-    sendMessage(p->dSC,"Le format de la commande n'est pas respecté", "Erreur send bad format");
+    sendMessage(p->dSC,"\e[1;31mLe format de la commande n'est pas respecté", "Erreur send bad format");
   }
 }
 
@@ -1102,7 +1120,7 @@ void* client(void * parametres) {
           updateChannel(dSC,msg); 
         }//Si la commande n'existe pas
         else {
-          sendMessage(dSC, "Cette commande n'existe pas", "Erreur bad command");
+          sendMessage(dSC, "\e[1;31mCette commande n'existe pas", "Erreur bad command");
         }
       }
     } while(continu == 1);
