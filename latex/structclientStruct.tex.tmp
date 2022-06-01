@@ -1,0 +1,26 @@
+\hypertarget{structclientStruct}{}\doxysection{client\+Struct Struct Reference}
+\label{structclientStruct}\index{clientStruct@{clientStruct}}
+
+
+Collaboration diagram for client\+Struct\+:
+% FIG 0
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structclientStruct_a62769ca3d13f49dc3fdf2964ceb82226}\label{structclientStruct_a62769ca3d13f49dc3fdf2964ceb82226}} 
+int {\bfseries d\+SC}
+\item 
+\mbox{\Hypertarget{structclientStruct_a3bd08b50e9bf292d42d66fcdcd294fa7}\label{structclientStruct_a3bd08b50e9bf292d42d66fcdcd294fa7}} 
+char $\ast$ {\bfseries pseudo}
+\item 
+\mbox{\Hypertarget{structclientStruct_a03ea7bd2bcc0c5665fec7dbfa98b235c}\label{structclientStruct_a03ea7bd2bcc0c5665fec7dbfa98b235c}} 
+int {\bfseries numero}
+\item 
+\mbox{\Hypertarget{structclientStruct_a9b168c21248c12073eb8d848a9152131}\label{structclientStruct_a9b168c21248c12073eb8d848a9152131}} 
+struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}} $\ast$ {\bfseries channel}
+\end{DoxyCompactItemize}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+serveur.\+c\end{DoxyCompactItemize}

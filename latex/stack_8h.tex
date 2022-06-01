@@ -1,0 +1,144 @@
+\hypertarget{stack_8h}{}\doxysection{stack.\+h File Reference}
+\label{stack_8h}\index{stack.h@{stack.h}}
+{\ttfamily \#include $<$stddef.\+h$>$}\newline
+{\ttfamily \#include $<$stdlib.\+h$>$}\newline
+Include dependency graph for stack.\+h\+:
+% FIG 0
+This graph shows which files directly or indirectly include this file\+:
+% FIG 1
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structStackRecur}{Stack\+Recur}}
+\item 
+struct \mbox{\hyperlink{structStack}{Stack}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct \mbox{\hyperlink{structStack}{Stack}} \mbox{\hyperlink{stack_8h_acccdaeb94a63f3757825012007215c0d}{Stack}}
+\item 
+typedef struct \mbox{\hyperlink{structStackRecur}{Stack\+Recur}} \mbox{\hyperlink{stack_8h_ab240a3046672f499df59b091d71d4378}{Stack\+Recur}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{structStack}{Stack}} $\ast$ \mbox{\hyperlink{stack_8h_a71790ed3a8033ae4e07e4820f6f22fb7}{create\+Stack}} ()
+\begin{DoxyCompactList}\small\item\em Créer une pile. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{stack_8h_a12e25d68286608b54312505a28a507e1}{empty\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Vérifie si la pile est vide (1 si oui, 0 sinon) \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{stack_8h_a0640652b0fee6e3bd16691891c3b1a42}{push\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack, int element)
+\begin{DoxyCompactList}\small\item\em Ajoute un entier à la pile. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{stack_8h_a2f2ffbd623395e0429b74c32b753beef}{pop\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Retourne le sommet de la pile, et le supprime de la pile. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{stack_8h_afe2dc28ea155d8d1cd25540c19fca713}{clear\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Vide la pile. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Typedef Documentation}
+\mbox{\Hypertarget{stack_8h_acccdaeb94a63f3757825012007215c0d}\label{stack_8h_acccdaeb94a63f3757825012007215c0d}} 
+\index{stack.h@{stack.h}!Stack@{Stack}}
+\index{Stack@{Stack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{Stack}{Stack}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{structStack}{Stack}} \mbox{\hyperlink{structStack}{Stack}}}
+
+\mbox{\Hypertarget{stack_8h_ab240a3046672f499df59b091d71d4378}\label{stack_8h_ab240a3046672f499df59b091d71d4378}} 
+\index{stack.h@{stack.h}!StackRecur@{StackRecur}}
+\index{StackRecur@{StackRecur}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{StackRecur}{StackRecur}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{structStackRecur}{Stack\+Recur}} \mbox{\hyperlink{structStackRecur}{Stack\+Recur}}}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{stack_8h_afe2dc28ea155d8d1cd25540c19fca713}\label{stack_8h_afe2dc28ea155d8d1cd25540c19fca713}} 
+\index{stack.h@{stack.h}!clearStack@{clearStack}}
+\index{clearStack@{clearStack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{clearStack()}{clearStack()}}
+{\footnotesize\ttfamily void clear\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Vide la pile. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{stack_8h_a71790ed3a8033ae4e07e4820f6f22fb7}\label{stack_8h_a71790ed3a8033ae4e07e4820f6f22fb7}} 
+\index{stack.h@{stack.h}!createStack@{createStack}}
+\index{createStack@{createStack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{createStack()}{createStack()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structStack}{Stack}}$\ast$ create\+Stack (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Créer une pile. 
+
+\begin{DoxyReturn}{Returns}
+Stack$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8h_a12e25d68286608b54312505a28a507e1}\label{stack_8h_a12e25d68286608b54312505a28a507e1}} 
+\index{stack.h@{stack.h}!emptyStack@{emptyStack}}
+\index{emptyStack@{emptyStack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{emptyStack()}{emptyStack()}}
+{\footnotesize\ttfamily int empty\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Vérifie si la pile est vide (1 si oui, 0 sinon) 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8h_a2f2ffbd623395e0429b74c32b753beef}\label{stack_8h_a2f2ffbd623395e0429b74c32b753beef}} 
+\index{stack.h@{stack.h}!popStack@{popStack}}
+\index{popStack@{popStack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{popStack()}{popStack()}}
+{\footnotesize\ttfamily int pop\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Retourne le sommet de la pile, et le supprime de la pile. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int
+\end{DoxyReturn}
+Retourne le sommet de la pile, et le supprime de la pile.
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8h_a0640652b0fee6e3bd16691891c3b1a42}\label{stack_8h_a0640652b0fee6e3bd16691891c3b1a42}} 
+\index{stack.h@{stack.h}!pushStack@{pushStack}}
+\index{pushStack@{pushStack}!stack.h@{stack.h}}
+\doxysubsubsection{\texorpdfstring{pushStack()}{pushStack()}}
+{\footnotesize\ttfamily void push\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack,  }\item[{int}]{element }\end{DoxyParamCaption})}
+
+
+
+Ajoute un entier à la pile. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+{\em element} & \\
+\hline
+\end{DoxyParams}

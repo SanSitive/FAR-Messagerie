@@ -1,0 +1,104 @@
+\hypertarget{stack_8c}{}\doxysection{stack.\+c File Reference}
+\label{stack_8c}\index{stack.c@{stack.c}}
+{\ttfamily \#include \char`\"{}stack.\+h\char`\"{}}\newline
+Include dependency graph for stack.\+c\+:
+% FIG 0
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{structStack}{Stack}} $\ast$ \mbox{\hyperlink{stack_8c_a71790ed3a8033ae4e07e4820f6f22fb7}{create\+Stack}} ()
+\begin{DoxyCompactList}\small\item\em Créer une pile. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{stack_8c_a12e25d68286608b54312505a28a507e1}{empty\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Vérifie si la pile est vide (1 si oui, 0 sinon) \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{stack_8c_a0640652b0fee6e3bd16691891c3b1a42}{push\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack, int element)
+\begin{DoxyCompactList}\small\item\em Ajoute un entier à la pile. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{stack_8c_a2f2ffbd623395e0429b74c32b753beef}{pop\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Retourne le sommet de la pile, et le supprime de la pile Retourne -\/1 si la pile est vide. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{stack_8c_afe2dc28ea155d8d1cd25540c19fca713}{clear\+Stack}} (\mbox{\hyperlink{structStack}{Stack}} $\ast$stack)
+\begin{DoxyCompactList}\small\item\em Vide la pile. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{stack_8c_afe2dc28ea155d8d1cd25540c19fca713}\label{stack_8c_afe2dc28ea155d8d1cd25540c19fca713}} 
+\index{stack.c@{stack.c}!clearStack@{clearStack}}
+\index{clearStack@{clearStack}!stack.c@{stack.c}}
+\doxysubsubsection{\texorpdfstring{clearStack()}{clearStack()}}
+{\footnotesize\ttfamily void clear\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Vide la pile. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{stack_8c_a71790ed3a8033ae4e07e4820f6f22fb7}\label{stack_8c_a71790ed3a8033ae4e07e4820f6f22fb7}} 
+\index{stack.c@{stack.c}!createStack@{createStack}}
+\index{createStack@{createStack}!stack.c@{stack.c}}
+\doxysubsubsection{\texorpdfstring{createStack()}{createStack()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structStack}{Stack}}$\ast$ create\+Stack (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Créer une pile. 
+
+\begin{DoxyReturn}{Returns}
+Stack$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8c_a12e25d68286608b54312505a28a507e1}\label{stack_8c_a12e25d68286608b54312505a28a507e1}} 
+\index{stack.c@{stack.c}!emptyStack@{emptyStack}}
+\index{emptyStack@{emptyStack}!stack.c@{stack.c}}
+\doxysubsubsection{\texorpdfstring{emptyStack()}{emptyStack()}}
+{\footnotesize\ttfamily int empty\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Vérifie si la pile est vide (1 si oui, 0 sinon) 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8c_a2f2ffbd623395e0429b74c32b753beef}\label{stack_8c_a2f2ffbd623395e0429b74c32b753beef}} 
+\index{stack.c@{stack.c}!popStack@{popStack}}
+\index{popStack@{popStack}!stack.c@{stack.c}}
+\doxysubsubsection{\texorpdfstring{popStack()}{popStack()}}
+{\footnotesize\ttfamily int pop\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack }\end{DoxyParamCaption})}
+
+
+
+Retourne le sommet de la pile, et le supprime de la pile Retourne -\/1 si la pile est vide. 
+
+Retourne le sommet de la pile, et le supprime de la pile.
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{stack_8c_a0640652b0fee6e3bd16691891c3b1a42}\label{stack_8c_a0640652b0fee6e3bd16691891c3b1a42}} 
+\index{stack.c@{stack.c}!pushStack@{pushStack}}
+\index{pushStack@{pushStack}!stack.c@{stack.c}}
+\doxysubsubsection{\texorpdfstring{pushStack()}{pushStack()}}
+{\footnotesize\ttfamily void push\+Stack (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structStack}{Stack}} $\ast$}]{stack,  }\item[{int}]{element }\end{DoxyParamCaption})}
+
+
+
+Ajoute un entier à la pile. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em stack} & \\
+\hline
+{\em element} & \\
+\hline
+\end{DoxyParams}

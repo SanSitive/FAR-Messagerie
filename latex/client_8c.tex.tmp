@@ -1,0 +1,534 @@
+\hypertarget{client_8c}{}\doxysection{client.\+c File Reference}
+\label{client_8c}\index{client.c@{client.c}}
+{\ttfamily \#include $<$stdio.\+h$>$}\newline
+{\ttfamily \#include $<$sys/socket.\+h$>$}\newline
+{\ttfamily \#include $<$arpa/inet.\+h$>$}\newline
+{\ttfamily \#include $<$stdlib.\+h$>$}\newline
+{\ttfamily \#include $<$unistd.\+h$>$}\newline
+{\ttfamily \#include $<$string.\+h$>$}\newline
+{\ttfamily \#include $<$sys/types.\+h$>$}\newline
+{\ttfamily \#include $<$sys/wait.\+h$>$}\newline
+{\ttfamily \#include $<$ctype.\+h$>$}\newline
+{\ttfamily \#include $<$sys/sem.\+h$>$}\newline
+{\ttfamily \#include $<$semaphore.\+h$>$}\newline
+{\ttfamily \#include $<$pthread.\+h$>$}\newline
+{\ttfamily \#include $<$dirent.\+h$>$}\newline
+{\ttfamily \#include $<$sys/stat.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}stack.\+h\char`\"{}}\newline
+Include dependency graph for client.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structfileStruct}{file\+Struct}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{client_8c_a9d84d6943cfb928af543c2dc74ffcbea}{S\+I\+Z\+E\+\_\+\+M\+E\+S\+S\+A\+GE}}~256
+\item 
+\#define \mbox{\hyperlink{client_8c_a2c5eecb22513a88c24ae5831a3265e54}{M\+A\+X\+\_\+\+F\+I\+L\+ES}}~3
+\item 
+\#define \mbox{\hyperlink{client_8c_a42d0bbc5987d755c0e6f324516418d31}{S\+I\+Z\+E\+\_\+\+P\+S\+E\+U\+DO}}~20
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{client_8c_ac967eb0edfce898a3df46f4b015dde53}{puts\+Red}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Affiche un message en rouge. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a085cefc45d3ee203907269070a1a2727}{puts\+Blue}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Affiche un message en bleu. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a8dad3f8caeb109d0ee03b58349812b5c}{puts\+Pink}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Affiche un message en rose. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_a7c110316e57350f383704c579759018c}{send\+Message}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}, char msg\mbox{[}$\,$\mbox{]}, char erreur\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Envoie un message au socket indiqué, et affiche l\textquotesingle{}erreur passé en paramètre s\textquotesingle{}il y a une erreur. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_a17ce977015104d5d089985a45631f97a}{recv\+Message}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}, char msg\mbox{[}$\,$\mbox{]}, char erreur\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Fonction pour recevoir les messages. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_aef34981c305259d77a5cfca97e0e8441}{create\+Socket}} (char $\ast$\mbox{\hyperlink{client_8c_afbc356cd0e25d1dbbece7c10fd025fa6}{ip}}, int \mbox{\hyperlink{client_8c_a63c89c04d1feae07ca35558055155ffb}{port}})
+\begin{DoxyCompactList}\small\item\em Renvoie une socket créée à partir d\textquotesingle{}une adresse ip et d\textquotesingle{}un port. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a39de210fbe809dbf86f5e0a167a025a0}{stop\+Client}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}})
+\begin{DoxyCompactList}\small\item\em Ferme le socket client. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}{arret}} ()
+\begin{DoxyCompactList}\small\item\em Fonction déclenchée lors d\textquotesingle{}un contrôle C. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_a04e0ed15625cea5d9f086483e9e334a6}{verif\+Pseudo}} (char pseudo\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Vérifie que le pseudo est correctement écrit, c\textquotesingle{}est-\/à-\/dire sans espace ou retour à la ligne. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a0bfe823cd734626461b29a5b9f60a3e9}{choose\+Pseudo}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Fonction qui demande à l\textquotesingle{}utilisateur un pseudo et vérifie sa conformité avant de l\textquotesingle{}envoyer au serveur. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{client_8c_a61699630caf2310871a124f9a2081b41}{cleaner}} ()
+\begin{DoxyCompactList}\small\item\em Thread nettoyant les threads zombie. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{client_8c_a1dd4bddefaae54ddc3380e1588d3e663}{receive\+File\+Process}} (void $\ast$parametres)
+\begin{DoxyCompactList}\small\item\em Processus gérant la reception d\textquotesingle{}un fichier du dossier \char`\"{}dowload\+\_\+server\char`\"{} dans le dossier \char`\"{}dowload\+\_\+client\char`\"{}. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{client_8c_ab287e0a87597340e97e5660d12d70d54}{send\+File\+Process}} (void $\ast$parametres)
+\begin{DoxyCompactList}\small\item\em Processus gérant l\textquotesingle{}envoie d\textquotesingle{}un fichier du dossier \char`\"{}download\+\_\+client\char`\"{}au serveur. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_ae55ab1d398f53396e9b8e18aa9edce06}{get\+Empty\+Position}} (int tab\mbox{[}$\,$\mbox{]}, int taille)
+\begin{DoxyCompactList}\small\item\em Trouve la première place libre dans le tableau, -\/1 si une place n\textquotesingle{}a pas été trouvée. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a0f152513ec6833b897d803dffbdbb4f1}{receive\+File}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Va chercher un fichier du serveur demandé par le client et l\textquotesingle{}ajoute dans son répertoire personnel. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a72544aa101fa81b72ec73d915fbde051}{send\+File}} (char $\ast$filename)
+\begin{DoxyCompactList}\small\item\em Envoie un fichier du dossier \char`\"{}download\+\_\+client\char`\"{} au serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a24709e6b9d48c7e5337ff4b5a0febf08}{select\+File}} ()
+\begin{DoxyCompactList}\small\item\em Demande à l\textquotesingle{}utilisateur de choisir un fichier à envoyer au serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a2d718c3f526cc8a9910fa2621289a8b2}{pere\+Send}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}})
+\begin{DoxyCompactList}\small\item\em Gère les entrées de l\textquotesingle{}utilisateur pour envoyer au serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a8a6ea22ef9dc6508d10858a05335690f}{fils\+Recv}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}})
+\begin{DoxyCompactList}\small\item\em Gère la réception des messages du serveur, et affiche sur le terminal. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{client_8c_a7136797c5e1b8a5b70fd0d3a29562064}{launch\+Client}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}})
+\begin{DoxyCompactList}\small\item\em Une fois le client correctement connecté et login, on initalise ce dont on aura besoin, et lance les parties gérant les envoies et les réceptions. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{client_8c_a0ddf1224851353fc92bfbff6f499fa97}{main}} (int argc, char $\ast$argv\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Main. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{client_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}
+\item 
+char $\ast$ \mbox{\hyperlink{client_8c_afbc356cd0e25d1dbbece7c10fd025fa6}{ip}}
+\item 
+int \mbox{\hyperlink{client_8c_a63c89c04d1feae07ca35558055155ffb}{port}}
+\item 
+int \mbox{\hyperlink{client_8c_a118fea98170d8ad281a4a79bffaa8cf2}{port\+\_\+file}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{client_8c_a61312ff206d6c1b970f640ca49889e50}{mutex\+\_\+file}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{client_8c_a9299d28afb77c54d51de7be2d1f3dd13}{mutex\+\_\+thread\+\_\+file}}
+\item 
+pthread\+\_\+t $\ast$ \mbox{\hyperlink{client_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}{thread\+\_\+files}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{client_8c_a26eb128439862615082f245d1aa06003}{sem\+\_\+place\+\_\+files}}
+\item 
+int $\ast$ \mbox{\hyperlink{client_8c_a7e5b377abcdff03518028cd2131ed609}{tab\+Index\+Thread\+File}}
+\item 
+pthread\+\_\+t \mbox{\hyperlink{client_8c_a4f21a55a37acbcd25109cc06cd431832}{thread\+\_\+cleaner\+\_\+files}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{client_8c_a945775fe96ce68d9a5f6edf740d9ae49}{sem\+\_\+thread\+\_\+files}}
+\item 
+\mbox{\hyperlink{structStack}{Stack}} $\ast$ \mbox{\hyperlink{client_8c_a67a399e68ef9b2baefe6305e66d9e696}{zombie\+Stack\+Files}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{client_8c_a2c5eecb22513a88c24ae5831a3265e54}\label{client_8c_a2c5eecb22513a88c24ae5831a3265e54}} 
+\index{client.c@{client.c}!MAX\_FILES@{MAX\_FILES}}
+\index{MAX\_FILES@{MAX\_FILES}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_FILES}{MAX\_FILES}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+F\+I\+L\+ES~3}
+
+\mbox{\Hypertarget{client_8c_a9d84d6943cfb928af543c2dc74ffcbea}\label{client_8c_a9d84d6943cfb928af543c2dc74ffcbea}} 
+\index{client.c@{client.c}!SIZE\_MESSAGE@{SIZE\_MESSAGE}}
+\index{SIZE\_MESSAGE@{SIZE\_MESSAGE}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{SIZE\_MESSAGE}{SIZE\_MESSAGE}}
+{\footnotesize\ttfamily \#define S\+I\+Z\+E\+\_\+\+M\+E\+S\+S\+A\+GE~256}
+
+\mbox{\Hypertarget{client_8c_a42d0bbc5987d755c0e6f324516418d31}\label{client_8c_a42d0bbc5987d755c0e6f324516418d31}} 
+\index{client.c@{client.c}!SIZE\_PSEUDO@{SIZE\_PSEUDO}}
+\index{SIZE\_PSEUDO@{SIZE\_PSEUDO}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{SIZE\_PSEUDO}{SIZE\_PSEUDO}}
+{\footnotesize\ttfamily \#define S\+I\+Z\+E\+\_\+\+P\+S\+E\+U\+DO~20}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{client_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}\label{client_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}} 
+\index{client.c@{client.c}!arret@{arret}}
+\index{arret@{arret}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{arret()}{arret()}}
+{\footnotesize\ttfamily void arret (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Fonction déclenchée lors d\textquotesingle{}un contrôle C. 
+
+\mbox{\Hypertarget{client_8c_a0bfe823cd734626461b29a5b9f60a3e9}\label{client_8c_a0bfe823cd734626461b29a5b9f60a3e9}} 
+\index{client.c@{client.c}!choosePseudo@{choosePseudo}}
+\index{choosePseudo@{choosePseudo}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{choosePseudo()}{choosePseudo()}}
+{\footnotesize\ttfamily void choose\+Pseudo (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Fonction qui demande à l\textquotesingle{}utilisateur un pseudo et vérifie sa conformité avant de l\textquotesingle{}envoyer au serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & Chaine de caractères où sera stocké le pseudo à envoyer \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a61699630caf2310871a124f9a2081b41}\label{client_8c_a61699630caf2310871a124f9a2081b41}} 
+\index{client.c@{client.c}!cleaner@{cleaner}}
+\index{cleaner@{cleaner}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{cleaner()}{cleaner()}}
+{\footnotesize\ttfamily void$\ast$ cleaner (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Thread nettoyant les threads zombie. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_aef34981c305259d77a5cfca97e0e8441}\label{client_8c_aef34981c305259d77a5cfca97e0e8441}} 
+\index{client.c@{client.c}!createSocket@{createSocket}}
+\index{createSocket@{createSocket}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{createSocket()}{createSocket()}}
+{\footnotesize\ttfamily int create\+Socket (\begin{DoxyParamCaption}\item[{char $\ast$}]{ip,  }\item[{int}]{port }\end{DoxyParamCaption})}
+
+
+
+Renvoie une socket créée à partir d\textquotesingle{}une adresse ip et d\textquotesingle{}un port. 
+
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a8a6ea22ef9dc6508d10858a05335690f}\label{client_8c_a8a6ea22ef9dc6508d10858a05335690f}} 
+\index{client.c@{client.c}!filsRecv@{filsRecv}}
+\index{filsRecv@{filsRecv}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{filsRecv()}{filsRecv()}}
+{\footnotesize\ttfamily void fils\+Recv (\begin{DoxyParamCaption}\item[{int}]{dS }\end{DoxyParamCaption})}
+
+
+
+Gère la réception des messages du serveur, et affiche sur le terminal. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_ae55ab1d398f53396e9b8e18aa9edce06}\label{client_8c_ae55ab1d398f53396e9b8e18aa9edce06}} 
+\index{client.c@{client.c}!getEmptyPosition@{getEmptyPosition}}
+\index{getEmptyPosition@{getEmptyPosition}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{getEmptyPosition()}{getEmptyPosition()}}
+{\footnotesize\ttfamily int get\+Empty\+Position (\begin{DoxyParamCaption}\item[{int}]{tab\mbox{[}$\,$\mbox{]},  }\item[{int}]{taille }\end{DoxyParamCaption})}
+
+
+
+Trouve la première place libre dans le tableau, -\/1 si une place n\textquotesingle{}a pas été trouvée. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em tab} & \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a7136797c5e1b8a5b70fd0d3a29562064}\label{client_8c_a7136797c5e1b8a5b70fd0d3a29562064}} 
+\index{client.c@{client.c}!launchClient@{launchClient}}
+\index{launchClient@{launchClient}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{launchClient()}{launchClient()}}
+{\footnotesize\ttfamily void launch\+Client (\begin{DoxyParamCaption}\item[{int}]{dS }\end{DoxyParamCaption})}
+
+
+
+Une fois le client correctement connecté et login, on initalise ce dont on aura besoin, et lance les parties gérant les envoies et les réceptions. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a0ddf1224851353fc92bfbff6f499fa97}\label{client_8c_a0ddf1224851353fc92bfbff6f499fa97}} 
+\index{client.c@{client.c}!main@{main}}
+\index{main@{main}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{main()}{main()}}
+{\footnotesize\ttfamily int main (\begin{DoxyParamCaption}\item[{int}]{argc,  }\item[{char $\ast$}]{argv\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Main. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em argc} & \\
+\hline
+{\em argv} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a2d718c3f526cc8a9910fa2621289a8b2}\label{client_8c_a2d718c3f526cc8a9910fa2621289a8b2}} 
+\index{client.c@{client.c}!pereSend@{pereSend}}
+\index{pereSend@{pereSend}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{pereSend()}{pereSend()}}
+{\footnotesize\ttfamily void pere\+Send (\begin{DoxyParamCaption}\item[{int}]{dS }\end{DoxyParamCaption})}
+
+
+
+Gère les entrées de l\textquotesingle{}utilisateur pour envoyer au serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a085cefc45d3ee203907269070a1a2727}\label{client_8c_a085cefc45d3ee203907269070a1a2727}} 
+\index{client.c@{client.c}!putsBlue@{putsBlue}}
+\index{putsBlue@{putsBlue}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{putsBlue()}{putsBlue()}}
+{\footnotesize\ttfamily void puts\+Blue (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Affiche un message en bleu. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & Message \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a8dad3f8caeb109d0ee03b58349812b5c}\label{client_8c_a8dad3f8caeb109d0ee03b58349812b5c}} 
+\index{client.c@{client.c}!putsPink@{putsPink}}
+\index{putsPink@{putsPink}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{putsPink()}{putsPink()}}
+{\footnotesize\ttfamily void puts\+Pink (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Affiche un message en rose. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & Message \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_ac967eb0edfce898a3df46f4b015dde53}\label{client_8c_ac967eb0edfce898a3df46f4b015dde53}} 
+\index{client.c@{client.c}!putsRed@{putsRed}}
+\index{putsRed@{putsRed}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{putsRed()}{putsRed()}}
+{\footnotesize\ttfamily void puts\+Red (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Affiche un message en rouge. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & Message \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a0f152513ec6833b897d803dffbdbb4f1}\label{client_8c_a0f152513ec6833b897d803dffbdbb4f1}} 
+\index{client.c@{client.c}!receiveFile@{receiveFile}}
+\index{receiveFile@{receiveFile}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{receiveFile()}{receiveFile()}}
+{\footnotesize\ttfamily void receive\+File (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Va chercher un fichier du serveur demandé par le client et l\textquotesingle{}ajoute dans son répertoire personnel. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a1dd4bddefaae54ddc3380e1588d3e663}\label{client_8c_a1dd4bddefaae54ddc3380e1588d3e663}} 
+\index{client.c@{client.c}!receiveFileProcess@{receiveFileProcess}}
+\index{receiveFileProcess@{receiveFileProcess}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{receiveFileProcess()}{receiveFileProcess()}}
+{\footnotesize\ttfamily void$\ast$ receive\+File\+Process (\begin{DoxyParamCaption}\item[{void $\ast$}]{parametres }\end{DoxyParamCaption})}
+
+
+
+Processus gérant la reception d\textquotesingle{}un fichier du dossier \char`\"{}dowload\+\_\+server\char`\"{} dans le dossier \char`\"{}dowload\+\_\+client\char`\"{}. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a17ce977015104d5d089985a45631f97a}\label{client_8c_a17ce977015104d5d089985a45631f97a}} 
+\index{client.c@{client.c}!recvMessage@{recvMessage}}
+\index{recvMessage@{recvMessage}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{recvMessage()}{recvMessage()}}
+{\footnotesize\ttfamily int recv\+Message (\begin{DoxyParamCaption}\item[{int}]{dS,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]},  }\item[{char}]{erreur\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Fonction pour recevoir les messages. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em msg} & \\
+\hline
+{\em erreur} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Nombre d\textquotesingle{}octets reçu 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a24709e6b9d48c7e5337ff4b5a0febf08}\label{client_8c_a24709e6b9d48c7e5337ff4b5a0febf08}} 
+\index{client.c@{client.c}!selectFile@{selectFile}}
+\index{selectFile@{selectFile}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{selectFile()}{selectFile()}}
+{\footnotesize\ttfamily void select\+File (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Demande à l\textquotesingle{}utilisateur de choisir un fichier à envoyer au serveur. 
+
+\mbox{\Hypertarget{client_8c_a72544aa101fa81b72ec73d915fbde051}\label{client_8c_a72544aa101fa81b72ec73d915fbde051}} 
+\index{client.c@{client.c}!sendFile@{sendFile}}
+\index{sendFile@{sendFile}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{sendFile()}{sendFile()}}
+{\footnotesize\ttfamily void send\+File (\begin{DoxyParamCaption}\item[{char $\ast$}]{filename }\end{DoxyParamCaption})}
+
+
+
+Envoie un fichier du dossier \char`\"{}download\+\_\+client\char`\"{} au serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em fichier} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_ab287e0a87597340e97e5660d12d70d54}\label{client_8c_ab287e0a87597340e97e5660d12d70d54}} 
+\index{client.c@{client.c}!sendFileProcess@{sendFileProcess}}
+\index{sendFileProcess@{sendFileProcess}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{sendFileProcess()}{sendFileProcess()}}
+{\footnotesize\ttfamily void$\ast$ send\+File\+Process (\begin{DoxyParamCaption}\item[{void $\ast$}]{parametres }\end{DoxyParamCaption})}
+
+
+
+Processus gérant l\textquotesingle{}envoie d\textquotesingle{}un fichier du dossier \char`\"{}download\+\_\+client\char`\"{}au serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em filename} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a7c110316e57350f383704c579759018c}\label{client_8c_a7c110316e57350f383704c579759018c}} 
+\index{client.c@{client.c}!sendMessage@{sendMessage}}
+\index{sendMessage@{sendMessage}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{sendMessage()}{sendMessage()}}
+{\footnotesize\ttfamily int send\+Message (\begin{DoxyParamCaption}\item[{int}]{dS,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]},  }\item[{char}]{erreur\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Envoie un message au socket indiqué, et affiche l\textquotesingle{}erreur passé en paramètre s\textquotesingle{}il y a une erreur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em msg} & \\
+\hline
+{\em erreur} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Nombre d\textquotesingle{}octets envoyé, ou -\/1 s\textquotesingle{}il y a une erreur 
+\end{DoxyReturn}
+\mbox{\Hypertarget{client_8c_a39de210fbe809dbf86f5e0a167a025a0}\label{client_8c_a39de210fbe809dbf86f5e0a167a025a0}} 
+\index{client.c@{client.c}!stopClient@{stopClient}}
+\index{stopClient@{stopClient}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{stopClient()}{stopClient()}}
+{\footnotesize\ttfamily void stop\+Client (\begin{DoxyParamCaption}\item[{int}]{dS }\end{DoxyParamCaption})}
+
+
+
+Ferme le socket client. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{client_8c_a04e0ed15625cea5d9f086483e9e334a6}\label{client_8c_a04e0ed15625cea5d9f086483e9e334a6}} 
+\index{client.c@{client.c}!verifPseudo@{verifPseudo}}
+\index{verifPseudo@{verifPseudo}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{verifPseudo()}{verifPseudo()}}
+{\footnotesize\ttfamily int verif\+Pseudo (\begin{DoxyParamCaption}\item[{char}]{pseudo\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Vérifie que le pseudo est correctement écrit, c\textquotesingle{}est-\/à-\/dire sans espace ou retour à la ligne. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em pseudo} & char\mbox{[}\mbox{]} \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+0 si le pseudo est correct, 1 si trop petit, 2 si trop grand, 3 s\textquotesingle{}il contient des blancs 
+\end{DoxyReturn}
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{client_8c_a84c46ac59c2266a7e8539c17adf11a9b}\label{client_8c_a84c46ac59c2266a7e8539c17adf11a9b}} 
+\index{client.c@{client.c}!dS@{dS}}
+\index{dS@{dS}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{dS}{dS}}
+{\footnotesize\ttfamily int dS}
+
+\mbox{\Hypertarget{client_8c_afbc356cd0e25d1dbbece7c10fd025fa6}\label{client_8c_afbc356cd0e25d1dbbece7c10fd025fa6}} 
+\index{client.c@{client.c}!ip@{ip}}
+\index{ip@{ip}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{ip}{ip}}
+{\footnotesize\ttfamily char$\ast$ ip}
+
+\mbox{\Hypertarget{client_8c_a61312ff206d6c1b970f640ca49889e50}\label{client_8c_a61312ff206d6c1b970f640ca49889e50}} 
+\index{client.c@{client.c}!mutex\_file@{mutex\_file}}
+\index{mutex\_file@{mutex\_file}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_file}{mutex\_file}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+file}
+
+\mbox{\Hypertarget{client_8c_a9299d28afb77c54d51de7be2d1f3dd13}\label{client_8c_a9299d28afb77c54d51de7be2d1f3dd13}} 
+\index{client.c@{client.c}!mutex\_thread\_file@{mutex\_thread\_file}}
+\index{mutex\_thread\_file@{mutex\_thread\_file}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_thread\_file}{mutex\_thread\_file}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+thread\+\_\+file}
+
+\mbox{\Hypertarget{client_8c_a63c89c04d1feae07ca35558055155ffb}\label{client_8c_a63c89c04d1feae07ca35558055155ffb}} 
+\index{client.c@{client.c}!port@{port}}
+\index{port@{port}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{port}{port}}
+{\footnotesize\ttfamily int port}
+
+\mbox{\Hypertarget{client_8c_a118fea98170d8ad281a4a79bffaa8cf2}\label{client_8c_a118fea98170d8ad281a4a79bffaa8cf2}} 
+\index{client.c@{client.c}!port\_file@{port\_file}}
+\index{port\_file@{port\_file}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{port\_file}{port\_file}}
+{\footnotesize\ttfamily int port\+\_\+file}
+
+\mbox{\Hypertarget{client_8c_a26eb128439862615082f245d1aa06003}\label{client_8c_a26eb128439862615082f245d1aa06003}} 
+\index{client.c@{client.c}!sem\_place\_files@{sem\_place\_files}}
+\index{sem\_place\_files@{sem\_place\_files}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{sem\_place\_files}{sem\_place\_files}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+place\+\_\+files}
+
+\mbox{\Hypertarget{client_8c_a945775fe96ce68d9a5f6edf740d9ae49}\label{client_8c_a945775fe96ce68d9a5f6edf740d9ae49}} 
+\index{client.c@{client.c}!sem\_thread\_files@{sem\_thread\_files}}
+\index{sem\_thread\_files@{sem\_thread\_files}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{sem\_thread\_files}{sem\_thread\_files}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+thread\+\_\+files}
+
+\mbox{\Hypertarget{client_8c_a7e5b377abcdff03518028cd2131ed609}\label{client_8c_a7e5b377abcdff03518028cd2131ed609}} 
+\index{client.c@{client.c}!tabIndexThreadFile@{tabIndexThreadFile}}
+\index{tabIndexThreadFile@{tabIndexThreadFile}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{tabIndexThreadFile}{tabIndexThreadFile}}
+{\footnotesize\ttfamily int$\ast$ tab\+Index\+Thread\+File}
+
+\mbox{\Hypertarget{client_8c_a4f21a55a37acbcd25109cc06cd431832}\label{client_8c_a4f21a55a37acbcd25109cc06cd431832}} 
+\index{client.c@{client.c}!thread\_cleaner\_files@{thread\_cleaner\_files}}
+\index{thread\_cleaner\_files@{thread\_cleaner\_files}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{thread\_cleaner\_files}{thread\_cleaner\_files}}
+{\footnotesize\ttfamily pthread\+\_\+t thread\+\_\+cleaner\+\_\+files}
+
+\mbox{\Hypertarget{client_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}\label{client_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}} 
+\index{client.c@{client.c}!thread\_files@{thread\_files}}
+\index{thread\_files@{thread\_files}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{thread\_files}{thread\_files}}
+{\footnotesize\ttfamily pthread\+\_\+t$\ast$ thread\+\_\+files}
+
+\mbox{\Hypertarget{client_8c_a67a399e68ef9b2baefe6305e66d9e696}\label{client_8c_a67a399e68ef9b2baefe6305e66d9e696}} 
+\index{client.c@{client.c}!zombieStackFiles@{zombieStackFiles}}
+\index{zombieStackFiles@{zombieStackFiles}!client.c@{client.c}}
+\doxysubsubsection{\texorpdfstring{zombieStackFiles}{zombieStackFiles}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structStack}{Stack}}$\ast$ zombie\+Stack\+Files}
+

@@ -1,0 +1,955 @@
+\hypertarget{serveur_8c}{}\doxysection{serveur.\+c File Reference}
+\label{serveur_8c}\index{serveur.c@{serveur.c}}
+{\ttfamily \#include $<$stdio.\+h$>$}\newline
+{\ttfamily \#include $<$sys/socket.\+h$>$}\newline
+{\ttfamily \#include $<$arpa/inet.\+h$>$}\newline
+{\ttfamily \#include $<$stdlib.\+h$>$}\newline
+{\ttfamily \#include $<$unistd.\+h$>$}\newline
+{\ttfamily \#include $<$pthread.\+h$>$}\newline
+{\ttfamily \#include $<$string.\+h$>$}\newline
+{\ttfamily \#include $<$signal.\+h$>$}\newline
+{\ttfamily \#include $<$ctype.\+h$>$}\newline
+{\ttfamily \#include $<$sys/sem.\+h$>$}\newline
+{\ttfamily \#include $<$semaphore.\+h$>$}\newline
+{\ttfamily \#include $<$dirent.\+h$>$}\newline
+{\ttfamily \#include $<$sys/stat.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}stack.\+h\char`\"{}}\newline
+Include dependency graph for serveur.\+c\+:
+% FIG 0
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structclientStruct}{client\+Struct}}
+\item 
+struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}}
+\item 
+struct \mbox{\hyperlink{structfileStruct}{file\+Struct}}
+\end{DoxyCompactItemize}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{serveur_8c_a0a8f91f93d75a07f0ae45077db45b3eb}{M\+A\+X\+\_\+\+C\+L\+I\+E\+N\+TS}}~5
+\item 
+\#define \mbox{\hyperlink{serveur_8c_a2c5eecb22513a88c24ae5831a3265e54}{M\+A\+X\+\_\+\+F\+I\+L\+ES}}~3
+\item 
+\#define \mbox{\hyperlink{serveur_8c_a9d84d6943cfb928af543c2dc74ffcbea}{S\+I\+Z\+E\+\_\+\+M\+E\+S\+S\+A\+GE}}~256
+\item 
+\#define \mbox{\hyperlink{serveur_8c_a53550b02192e90e64ea2ecce606fc361}{M\+A\+X\+\_\+\+C\+H\+A\+N\+N\+EL}}~10
+\item 
+\#define \mbox{\hyperlink{serveur_8c_a50fdb0f112ef91afbaff0c69afc42a13}{M\+A\+X\+\_\+\+C\+L\+I\+E\+N\+T\+S\+\_\+\+C\+H\+A\+N\+N\+EL}}~10
+\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{serveur_8c_a7c110316e57350f383704c579759018c}{send\+Message}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}, char msg\mbox{[}$\,$\mbox{]}, char erreur\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Envoie un message au socket indiqué, et affiche l\textquotesingle{}erreur passé en paramètre s\textquotesingle{}il y a une erreur. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a17ce977015104d5d089985a45631f97a}{recv\+Message}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}, char msg\mbox{[}$\,$\mbox{]}, char erreur\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Essaye de récupérer un fichier, affiche une erreur s\textquotesingle{}il n\textquotesingle{}y arrive pas. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a51718ed7ae51b20dc45c9463c27b905a}{create\+Socket\+Server}} (int \mbox{\hyperlink{client_8c_a63c89c04d1feae07ca35558055155ffb}{port}})
+\begin{DoxyCompactList}\small\item\em Créée une socket en mode écoute, à partir d\textquotesingle{}un port. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a109c890e74718b9d888774084804ed9d}{save\+Channels}} ()
+\begin{DoxyCompactList}\small\item\em Enregistre les channels dans le fichier \mbox{\hyperlink{channel_8txt}{channel.\+txt}}. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a4f000fb15417febed690ae5e83747fa2}{stop\+Serveur}} (int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}})
+\begin{DoxyCompactList}\small\item\em Ferme le serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}{arret}} ()
+\begin{DoxyCompactList}\small\item\em Fonction déclenchée lors d\textquotesingle{}un contrôle C. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_acde6da9118014fd73e806c669fa0f544}{is\+Pseudo\+Taken}} (char pseudo\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Vérifie si un pseudo est déjà pris. Retourne 1 si oui, 0 sinon. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a7d2aebb13d0c0be748343d770ab1a3b9}{is\+Channel\+Name\+Taken}} (char name\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Vérifie si un nom de channel est déjà pris. Retourn 1 si oui, 0 sinon. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a947fbe500a5127ae800f135997c687f9}{login}} (int d\+SC, struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$p)
+\begin{DoxyCompactList}\small\item\em Vérifie les informations de login d\textquotesingle{}un client. Retourne 1 si les informations sont bonnes, 0 sinon, ou si le pseudo est déjà pris. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a5d73c427dae387199f8c122b2163308d}{client\+To\+All}} (struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$p, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Envoie le message d\textquotesingle{}un client vers tous les autres du même salon. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a5b4cf2a89060b9527302d47d4b921a26}{transform\+Command}} (char m\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Transforme une chaîne de caractère pour enlever les majuscules(pour ce qui suit directement @, pas les paramètres), les espaces en trop à la fin, et le retour à la ligne. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a417d83ffd41c41c670ad8a199787dc76}{help}} (int d\+SC)
+\begin{DoxyCompactList}\small\item\em Envoie la liste des commandes au client en paramètre (lecture du fichier \mbox{\hyperlink{help_8txt}{help.\+txt}}) \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_aa1fd40fdb9efedf2466e7602558acd04}{list\+Clients}} (int d\+SC)
+\begin{DoxyCompactList}\small\item\em Envoie la liste des utilisateurs (sauf lui-\/même) au client en paramètre. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a81612c3fa38f01a3cc711af074037906}{dm}} (struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$p, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Envoie un message privé à un client Si le destinataire n\textquotesingle{}existe pas, on envoie un message d\textquotesingle{}erreur à l\textquotesingle{}émetteur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ac6f28c14c548cda7845f311ba08f4057}{files\+Serveur}} (int d\+SC)
+\begin{DoxyCompactList}\small\item\em Liste les fichiers présents sur le serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_acc2fd9d25f4a58c93b64fede96c9b157}{all\+Channels}} (int d\+SC)
+\begin{DoxyCompactList}\small\item\em Fonction qui permet d\textquotesingle{}afficher tous les channels (Envoi successivement chacun des channels disponibles) \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a0cf95c9b7e83c71bbefe80a1dd1ebdc9}{join\+Channel}} (struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$p, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Fonction qui permet au client de rejoindre un channel. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ad5dc1a312670cd7c2d01a399325c3d80}{disconnect\+Channel}} (struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$p)
+\begin{DoxyCompactList}\small\item\em Fonction qui permet au client de sortir du channel où il se situe. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a9034f2e2772905094f300c150fbeffca}{get\+Empty\+Position\+Channels}} (struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}} $\ast$tab\mbox{[}$\,$\mbox{]}, int taille)
+\begin{DoxyCompactList}\small\item\em Permet d\textquotesingle{}obtenir la première place non occupé dans le tableau des channels Renvoie l\textquotesingle{}index de la position dans le tableau ou -\/1 si il n\textquotesingle{}est pas trouvé \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a200210960df0dd28aead29e0aa8fe1d4}{update\+Channel}} (int d\+SC, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Update le channel avec les paramètres contenu dans le message ex \+: message = @uc Salon\+\_\+1 capacity 3 =$>$ modifie la proprieté capacity du channel nommé Salon\+\_\+1. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ac2bb446e967ea8a2a0bf080de66d9f96}{add\+Channel}} (int d\+SC, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Découpe le message contenant les informations d\textquotesingle{}un channel, puis en créé un en utilisant ces paramètres. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_aa1349c85227f46b6d64fe01429a5fe63}{create\+Channel}} (int d\+SC, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Crée un channel, envoie un message de réussite au client si le channel à bien été créer sinon envoie impossible. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_af5938e05db7e7fad2509c47f1afd3761}{delete\+Channel}} (int d\+SC, char msg\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Supprime un channel. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{serveur_8c_a93381c58e7009336232f6f61ba69ccfc}{client}} (void $\ast$parametres)
+\begin{DoxyCompactList}\small\item\em Fonction des threads clients, elle gère la réception d\textquotesingle{}un message envoyé par le client au serveur, et envoie ce message aux autres clients. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a2ab6f1783bdf41404a29b75c704e2896}{file\+To\+Server}} (struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$f)
+\begin{DoxyCompactList}\small\item\em Fonction qui gère le protocole de copie d\textquotesingle{}un fichier client dans le serveur. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a6e5d250f0e5e564c59ab4e7b62a969f2}{file\+To\+Client}} (struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$f)
+\begin{DoxyCompactList}\small\item\em Fonction qui gère le protocole d\textquotesingle{}envoie d\textquotesingle{}un fichier serveur au client. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{serveur_8c_ad66256f263eb375ca59842e71fc52eff}{file}} (void $\ast$parametres)
+\begin{DoxyCompactList}\small\item\em Thread lié à une demande de téléchargement d\textquotesingle{}un fichier. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a0f0e1cfca4087c876a113abb78b563da}{get\+Empty\+Position\+Client}} (struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$tab\mbox{[}$\,$\mbox{]}, int taille)
+\begin{DoxyCompactList}\small\item\em Trouve la première place libre dans la liste des clients, -\/1 si une place n\textquotesingle{}a pas été trouvée. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_acdda3786108658748fa717053ea14240}{get\+Empty\+Position\+File}} (struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$tab\mbox{[}$\,$\mbox{]}, int taille)
+\begin{DoxyCompactList}\small\item\em Trouve la première place libre dans la liste des fichiers, -\/1 si une place n\textquotesingle{}a pas été trouvée. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{serveur_8c_a88c9bfb08df5af0264cd6f091ec01631}{cleaner\+Files}} ()
+\begin{DoxyCompactList}\small\item\em Fonction lié au thread qui clean en boucle les thread files zombies s\textquotesingle{}il en existe. \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{serveur_8c_a93dac6351be5262580bdaf010bfec90a}{cleaner\+Clients}} ()
+\begin{DoxyCompactList}\small\item\em Fonction lié au thread qui clean en boucle les thread clients zombies s\textquotesingle{}il en existe. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ac20e768d2123e4e5b8c1a4c5af1cb87f}{add\+File\+Socket}} (int d\+SF)
+\begin{DoxyCompactList}\small\item\em Ajoute une socket liée au fichier dans la liste et lance le thread file associé \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ae5ecc88fbdba91897f635850f8a7535e}{add\+Client\+Socket}} (int d\+SC)
+\begin{DoxyCompactList}\small\item\em Ajoute un client dans la liste, et lance le thread client associé \end{DoxyCompactList}\item 
+void $\ast$ \mbox{\hyperlink{serveur_8c_aa9406d3668a3e942d0744dff926efc80}{accept\+Files}} ()
+\begin{DoxyCompactList}\small\item\em Boucle infinie attendant de nouvelles demandes liées aux fichiers. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_ae3c598cdc7c8f2f9994559622db6e615}{accept\+Clients}} ()
+\begin{DoxyCompactList}\small\item\em Boucle infinie attendant de nouveaux clients. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a8be71080f3cf5c74c1690f98be29057e}{init\+Channels}} ()
+\begin{DoxyCompactList}\small\item\em Initialise et récupère les channels sauvegardés. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a7af790dfffb655e44ddc342e2be0fe57}{init\+Files}} (int \mbox{\hyperlink{client_8c_a118fea98170d8ad281a4a79bffaa8cf2}{port\+\_\+file}})
+\begin{DoxyCompactList}\small\item\em Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer les demandes liées aux fichiers. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{serveur_8c_a923286449dcd2952e702ccd78c5a2dd1}{init\+Clients}} (int \mbox{\hyperlink{client_8c_a63c89c04d1feae07ca35558055155ffb}{port}})
+\begin{DoxyCompactList}\small\item\em Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer la connexion de clients. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{serveur_8c_a0ddf1224851353fc92bfbff6f499fa97}{main}} (int argc, char $\ast$argv\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Main. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}{dS}}
+\item 
+int \mbox{\hyperlink{serveur_8c_a1e380bf8222345de904a8c089d42eb24}{d\+S\+File}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{serveur_8c_a61312ff206d6c1b970f640ca49889e50}{mutex\+\_\+file}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{serveur_8c_a650c6de3fef3bd5a46738fe7efb5717f}{mutex\+\_\+clients}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{serveur_8c_abe545854910a9e187de970f1d7a12b6f}{mutex\+\_\+help}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{serveur_8c_a209d0da58f7b8744281518cc3c0d5b87}{mutex\+\_\+thread}}
+\item 
+pthread\+\_\+t \mbox{\hyperlink{serveur_8c_a5755938e7746dcdb6bd97664a651c395}{file\+\_\+manager}}
+\item 
+pthread\+\_\+t $\ast$ \mbox{\hyperlink{serveur_8c_a6b67ec3785df1f36469a10e68b64ab6f}{thread}}
+\item 
+struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$$\ast$ \mbox{\hyperlink{serveur_8c_a6b34d7857f24acd7c9dfed4d892f7965}{clients}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{serveur_8c_aa65f430bdd7c8f4ded9a70ff602f5c01}{sem\+\_\+place}}
+\item 
+pthread\+\_\+t \mbox{\hyperlink{serveur_8c_a33aafbae4f7bace80fdd1c706d08f2ed}{thread\+\_\+cleaner}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{serveur_8c_acceca733f7d8f65d26eed3ce2ec4671b}{sem\+\_\+thread}}
+\item 
+\mbox{\hyperlink{structStack}{Stack}} $\ast$ \mbox{\hyperlink{serveur_8c_a04ffa6156bb742eeefe6366a0f7b977a}{zombie\+Stack}}
+\item 
+struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}} $\ast$$\ast$ \mbox{\hyperlink{serveur_8c_acf4661bf90db48b19eceb96b2ff19033}{channels}}
+\item 
+int \mbox{\hyperlink{serveur_8c_ace2be3f433a6d3928bf9e69719d24747}{number\+Of\+Channels}}
+\item 
+pthread\+\_\+mutex\+\_\+t \mbox{\hyperlink{serveur_8c_a6e33d22b56e8bbeeaaa8428fc7a07ae9}{mutex\+\_\+channel}}
+\item 
+pthread\+\_\+t $\ast$ \mbox{\hyperlink{serveur_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}{thread\+\_\+files}}
+\item 
+struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$$\ast$ \mbox{\hyperlink{serveur_8c_ae9abf8676a6a52ae1db3bcd782728069}{files}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{serveur_8c_a26eb128439862615082f245d1aa06003}{sem\+\_\+place\+\_\+files}}
+\item 
+pthread\+\_\+t \mbox{\hyperlink{serveur_8c_a4f21a55a37acbcd25109cc06cd431832}{thread\+\_\+cleaner\+\_\+files}}
+\item 
+sem\+\_\+t \mbox{\hyperlink{serveur_8c_a945775fe96ce68d9a5f6edf740d9ae49}{sem\+\_\+thread\+\_\+files}}
+\item 
+\mbox{\hyperlink{structStack}{Stack}} $\ast$ \mbox{\hyperlink{serveur_8c_a67a399e68ef9b2baefe6305e66d9e696}{zombie\+Stack\+Files}}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{serveur_8c_a53550b02192e90e64ea2ecce606fc361}\label{serveur_8c_a53550b02192e90e64ea2ecce606fc361}} 
+\index{serveur.c@{serveur.c}!MAX\_CHANNEL@{MAX\_CHANNEL}}
+\index{MAX\_CHANNEL@{MAX\_CHANNEL}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_CHANNEL}{MAX\_CHANNEL}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+C\+H\+A\+N\+N\+EL~10}
+
+\mbox{\Hypertarget{serveur_8c_a0a8f91f93d75a07f0ae45077db45b3eb}\label{serveur_8c_a0a8f91f93d75a07f0ae45077db45b3eb}} 
+\index{serveur.c@{serveur.c}!MAX\_CLIENTS@{MAX\_CLIENTS}}
+\index{MAX\_CLIENTS@{MAX\_CLIENTS}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_CLIENTS}{MAX\_CLIENTS}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+C\+L\+I\+E\+N\+TS~5}
+
+\mbox{\Hypertarget{serveur_8c_a50fdb0f112ef91afbaff0c69afc42a13}\label{serveur_8c_a50fdb0f112ef91afbaff0c69afc42a13}} 
+\index{serveur.c@{serveur.c}!MAX\_CLIENTS\_CHANNEL@{MAX\_CLIENTS\_CHANNEL}}
+\index{MAX\_CLIENTS\_CHANNEL@{MAX\_CLIENTS\_CHANNEL}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_CLIENTS\_CHANNEL}{MAX\_CLIENTS\_CHANNEL}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+C\+L\+I\+E\+N\+T\+S\+\_\+\+C\+H\+A\+N\+N\+EL~10}
+
+\mbox{\Hypertarget{serveur_8c_a2c5eecb22513a88c24ae5831a3265e54}\label{serveur_8c_a2c5eecb22513a88c24ae5831a3265e54}} 
+\index{serveur.c@{serveur.c}!MAX\_FILES@{MAX\_FILES}}
+\index{MAX\_FILES@{MAX\_FILES}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{MAX\_FILES}{MAX\_FILES}}
+{\footnotesize\ttfamily \#define M\+A\+X\+\_\+\+F\+I\+L\+ES~3}
+
+\mbox{\Hypertarget{serveur_8c_a9d84d6943cfb928af543c2dc74ffcbea}\label{serveur_8c_a9d84d6943cfb928af543c2dc74ffcbea}} 
+\index{serveur.c@{serveur.c}!SIZE\_MESSAGE@{SIZE\_MESSAGE}}
+\index{SIZE\_MESSAGE@{SIZE\_MESSAGE}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{SIZE\_MESSAGE}{SIZE\_MESSAGE}}
+{\footnotesize\ttfamily \#define S\+I\+Z\+E\+\_\+\+M\+E\+S\+S\+A\+GE~256}
+
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{serveur_8c_ae3c598cdc7c8f2f9994559622db6e615}\label{serveur_8c_ae3c598cdc7c8f2f9994559622db6e615}} 
+\index{serveur.c@{serveur.c}!acceptClients@{acceptClients}}
+\index{acceptClients@{acceptClients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{acceptClients()}{acceptClients()}}
+{\footnotesize\ttfamily void accept\+Clients (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Boucle infinie attendant de nouveaux clients. 
+
+\mbox{\Hypertarget{serveur_8c_aa9406d3668a3e942d0744dff926efc80}\label{serveur_8c_aa9406d3668a3e942d0744dff926efc80}} 
+\index{serveur.c@{serveur.c}!acceptFiles@{acceptFiles}}
+\index{acceptFiles@{acceptFiles}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{acceptFiles()}{acceptFiles()}}
+{\footnotesize\ttfamily void$\ast$ accept\+Files (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Boucle infinie attendant de nouvelles demandes liées aux fichiers. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_ac2bb446e967ea8a2a0bf080de66d9f96}\label{serveur_8c_ac2bb446e967ea8a2a0bf080de66d9f96}} 
+\index{serveur.c@{serveur.c}!addChannel@{addChannel}}
+\index{addChannel@{addChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{addChannel()}{addChannel()}}
+{\footnotesize\ttfamily void add\+Channel (\begin{DoxyParamCaption}\item[{int}]{d\+SC,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Découpe le message contenant les informations d\textquotesingle{}un channel, puis en créé un en utilisant ces paramètres. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em msg} & Le message qui contient les informations de type @cc name capacity description \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_ae5ecc88fbdba91897f635850f8a7535e}\label{serveur_8c_ae5ecc88fbdba91897f635850f8a7535e}} 
+\index{serveur.c@{serveur.c}!addClientSocket@{addClientSocket}}
+\index{addClientSocket@{addClientSocket}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{addClientSocket()}{addClientSocket()}}
+{\footnotesize\ttfamily void add\+Client\+Socket (\begin{DoxyParamCaption}\item[{int}]{d\+SC }\end{DoxyParamCaption})}
+
+
+
+Ajoute un client dans la liste, et lance le thread client associé 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_ac20e768d2123e4e5b8c1a4c5af1cb87f}\label{serveur_8c_ac20e768d2123e4e5b8c1a4c5af1cb87f}} 
+\index{serveur.c@{serveur.c}!addFileSocket@{addFileSocket}}
+\index{addFileSocket@{addFileSocket}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{addFileSocket()}{addFileSocket()}}
+{\footnotesize\ttfamily void add\+File\+Socket (\begin{DoxyParamCaption}\item[{int}]{d\+SF }\end{DoxyParamCaption})}
+
+
+
+Ajoute une socket liée au fichier dans la liste et lance le thread file associé 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SF} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_acc2fd9d25f4a58c93b64fede96c9b157}\label{serveur_8c_acc2fd9d25f4a58c93b64fede96c9b157}} 
+\index{serveur.c@{serveur.c}!allChannels@{allChannels}}
+\index{allChannels@{allChannels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{allChannels()}{allChannels()}}
+{\footnotesize\ttfamily void all\+Channels (\begin{DoxyParamCaption}\item[{int}]{d\+SC }\end{DoxyParamCaption})}
+
+
+
+Fonction qui permet d\textquotesingle{}afficher tous les channels (Envoi successivement chacun des channels disponibles) 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}\label{serveur_8c_adf17a6b9d6a5ebd5f60e41a7ea841b87}} 
+\index{serveur.c@{serveur.c}!arret@{arret}}
+\index{arret@{arret}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{arret()}{arret()}}
+{\footnotesize\ttfamily void arret (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Fonction déclenchée lors d\textquotesingle{}un contrôle C. 
+
+\mbox{\Hypertarget{serveur_8c_a93dac6351be5262580bdaf010bfec90a}\label{serveur_8c_a93dac6351be5262580bdaf010bfec90a}} 
+\index{serveur.c@{serveur.c}!cleanerClients@{cleanerClients}}
+\index{cleanerClients@{cleanerClients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{cleanerClients()}{cleanerClients()}}
+{\footnotesize\ttfamily void$\ast$ cleaner\+Clients (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Fonction lié au thread qui clean en boucle les thread clients zombies s\textquotesingle{}il en existe. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a88c9bfb08df5af0264cd6f091ec01631}\label{serveur_8c_a88c9bfb08df5af0264cd6f091ec01631}} 
+\index{serveur.c@{serveur.c}!cleanerFiles@{cleanerFiles}}
+\index{cleanerFiles@{cleanerFiles}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{cleanerFiles()}{cleanerFiles()}}
+{\footnotesize\ttfamily void$\ast$ cleaner\+Files (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Fonction lié au thread qui clean en boucle les thread files zombies s\textquotesingle{}il en existe. 
+
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a93381c58e7009336232f6f61ba69ccfc}\label{serveur_8c_a93381c58e7009336232f6f61ba69ccfc}} 
+\index{serveur.c@{serveur.c}!client@{client}}
+\index{client@{client}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{client()}{client()}}
+{\footnotesize\ttfamily void$\ast$ client (\begin{DoxyParamCaption}\item[{void $\ast$}]{parametres }\end{DoxyParamCaption})}
+
+
+
+Fonction des threads clients, elle gère la réception d\textquotesingle{}un message envoyé par le client au serveur, et envoie ce message aux autres clients. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em parametres} & Struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a5d73c427dae387199f8c122b2163308d}\label{serveur_8c_a5d73c427dae387199f8c122b2163308d}} 
+\index{serveur.c@{serveur.c}!clientToAll@{clientToAll}}
+\index{clientToAll@{clientToAll}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{clientToAll()}{clientToAll()}}
+{\footnotesize\ttfamily void client\+To\+All (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{p,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Envoie le message d\textquotesingle{}un client vers tous les autres du même salon. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em p} & \\
+\hline
+{\em msg} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_aa1349c85227f46b6d64fe01429a5fe63}\label{serveur_8c_aa1349c85227f46b6d64fe01429a5fe63}} 
+\index{serveur.c@{serveur.c}!createChannel@{createChannel}}
+\index{createChannel@{createChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{createChannel()}{createChannel()}}
+{\footnotesize\ttfamily void create\+Channel (\begin{DoxyParamCaption}\item[{int}]{d\+SC,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Crée un channel, envoie un message de réussite au client si le channel à bien été créer sinon envoie impossible. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+{\em msg} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a51718ed7ae51b20dc45c9463c27b905a}\label{serveur_8c_a51718ed7ae51b20dc45c9463c27b905a}} 
+\index{serveur.c@{serveur.c}!createSocketServer@{createSocketServer}}
+\index{createSocketServer@{createSocketServer}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{createSocketServer()}{createSocketServer()}}
+{\footnotesize\ttfamily int create\+Socket\+Server (\begin{DoxyParamCaption}\item[{int}]{port }\end{DoxyParamCaption})}
+
+
+
+Créée une socket en mode écoute, à partir d\textquotesingle{}un port. 
+
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_af5938e05db7e7fad2509c47f1afd3761}\label{serveur_8c_af5938e05db7e7fad2509c47f1afd3761}} 
+\index{serveur.c@{serveur.c}!deleteChannel@{deleteChannel}}
+\index{deleteChannel@{deleteChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{deleteChannel()}{deleteChannel()}}
+{\footnotesize\ttfamily void delete\+Channel (\begin{DoxyParamCaption}\item[{int}]{d\+SC,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Supprime un channel. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & Le d\+SC du client \\
+\hline
+{\em msg} & Le message contenant le nom du channel \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_ad5dc1a312670cd7c2d01a399325c3d80}\label{serveur_8c_ad5dc1a312670cd7c2d01a399325c3d80}} 
+\index{serveur.c@{serveur.c}!disconnectChannel@{disconnectChannel}}
+\index{disconnectChannel@{disconnectChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{disconnectChannel()}{disconnectChannel()}}
+{\footnotesize\ttfamily void disconnect\+Channel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+
+
+Fonction qui permet au client de sortir du channel où il se situe. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em p} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a81612c3fa38f01a3cc711af074037906}\label{serveur_8c_a81612c3fa38f01a3cc711af074037906}} 
+\index{serveur.c@{serveur.c}!dm@{dm}}
+\index{dm@{dm}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{dm()}{dm()}}
+{\footnotesize\ttfamily void dm (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{p,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Envoie un message privé à un client Si le destinataire n\textquotesingle{}existe pas, on envoie un message d\textquotesingle{}erreur à l\textquotesingle{}émetteur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em msg} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_ad66256f263eb375ca59842e71fc52eff}\label{serveur_8c_ad66256f263eb375ca59842e71fc52eff}} 
+\index{serveur.c@{serveur.c}!file@{file}}
+\index{file@{file}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{file()}{file()}}
+{\footnotesize\ttfamily void$\ast$ file (\begin{DoxyParamCaption}\item[{void $\ast$}]{parametres }\end{DoxyParamCaption})}
+
+
+
+Thread lié à une demande de téléchargement d\textquotesingle{}un fichier. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em parametres} & Struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_ac6f28c14c548cda7845f311ba08f4057}\label{serveur_8c_ac6f28c14c548cda7845f311ba08f4057}} 
+\index{serveur.c@{serveur.c}!filesServeur@{filesServeur}}
+\index{filesServeur@{filesServeur}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{filesServeur()}{filesServeur()}}
+{\footnotesize\ttfamily void files\+Serveur (\begin{DoxyParamCaption}\item[{int}]{d\+SC }\end{DoxyParamCaption})}
+
+
+
+Liste les fichiers présents sur le serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a6e5d250f0e5e564c59ab4e7b62a969f2}\label{serveur_8c_a6e5d250f0e5e564c59ab4e7b62a969f2}} 
+\index{serveur.c@{serveur.c}!fileToClient@{fileToClient}}
+\index{fileToClient@{fileToClient}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{fileToClient()}{fileToClient()}}
+{\footnotesize\ttfamily void file\+To\+Client (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$}]{f }\end{DoxyParamCaption})}
+
+
+
+Fonction qui gère le protocole d\textquotesingle{}envoie d\textquotesingle{}un fichier serveur au client. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em f} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a2ab6f1783bdf41404a29b75c704e2896}\label{serveur_8c_a2ab6f1783bdf41404a29b75c704e2896}} 
+\index{serveur.c@{serveur.c}!fileToServer@{fileToServer}}
+\index{fileToServer@{fileToServer}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{fileToServer()}{fileToServer()}}
+{\footnotesize\ttfamily void file\+To\+Server (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$}]{f }\end{DoxyParamCaption})}
+
+
+
+Fonction qui gère le protocole de copie d\textquotesingle{}un fichier client dans le serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em f} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a9034f2e2772905094f300c150fbeffca}\label{serveur_8c_a9034f2e2772905094f300c150fbeffca}} 
+\index{serveur.c@{serveur.c}!getEmptyPositionChannels@{getEmptyPositionChannels}}
+\index{getEmptyPositionChannels@{getEmptyPositionChannels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{getEmptyPositionChannels()}{getEmptyPositionChannels()}}
+{\footnotesize\ttfamily int get\+Empty\+Position\+Channels (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}} $\ast$}]{tab\mbox{[}$\,$\mbox{]},  }\item[{int}]{taille }\end{DoxyParamCaption})}
+
+
+
+Permet d\textquotesingle{}obtenir la première place non occupé dans le tableau des channels Renvoie l\textquotesingle{}index de la position dans le tableau ou -\/1 si il n\textquotesingle{}est pas trouvé 
+
+
+\begin{DoxyParams}{Parameters}
+{\em tab} & Le tableau dans lequel on cherche la place null \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a0f0e1cfca4087c876a113abb78b563da}\label{serveur_8c_a0f0e1cfca4087c876a113abb78b563da}} 
+\index{serveur.c@{serveur.c}!getEmptyPositionClient@{getEmptyPositionClient}}
+\index{getEmptyPositionClient@{getEmptyPositionClient}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{getEmptyPositionClient()}{getEmptyPositionClient()}}
+{\footnotesize\ttfamily int get\+Empty\+Position\+Client (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{tab\mbox{[}$\,$\mbox{]},  }\item[{int}]{taille }\end{DoxyParamCaption})}
+
+
+
+Trouve la première place libre dans la liste des clients, -\/1 si une place n\textquotesingle{}a pas été trouvée. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em tab} & \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+index dans le tableau de la place disponible, -\/1 si aucune place n\textquotesingle{}est disponible 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_acdda3786108658748fa717053ea14240}\label{serveur_8c_acdda3786108658748fa717053ea14240}} 
+\index{serveur.c@{serveur.c}!getEmptyPositionFile@{getEmptyPositionFile}}
+\index{getEmptyPositionFile@{getEmptyPositionFile}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{getEmptyPositionFile()}{getEmptyPositionFile()}}
+{\footnotesize\ttfamily int get\+Empty\+Position\+File (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structfileStruct}{file\+Struct}} $\ast$}]{tab\mbox{[}$\,$\mbox{]},  }\item[{int}]{taille }\end{DoxyParamCaption})}
+
+
+
+Trouve la première place libre dans la liste des fichiers, -\/1 si une place n\textquotesingle{}a pas été trouvée. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em tab} & \\
+\hline
+{\em taille} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+index dans le tableau de la place disponible, -\/1 si aucune place n\textquotesingle{}est disponible 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a417d83ffd41c41c670ad8a199787dc76}\label{serveur_8c_a417d83ffd41c41c670ad8a199787dc76}} 
+\index{serveur.c@{serveur.c}!help@{help}}
+\index{help@{help}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{help()}{help()}}
+{\footnotesize\ttfamily void help (\begin{DoxyParamCaption}\item[{int}]{d\+SC }\end{DoxyParamCaption})}
+
+
+
+Envoie la liste des commandes au client en paramètre (lecture du fichier \mbox{\hyperlink{help_8txt}{help.\+txt}}) 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a8be71080f3cf5c74c1690f98be29057e}\label{serveur_8c_a8be71080f3cf5c74c1690f98be29057e}} 
+\index{serveur.c@{serveur.c}!initChannels@{initChannels}}
+\index{initChannels@{initChannels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{initChannels()}{initChannels()}}
+{\footnotesize\ttfamily void init\+Channels (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Initialise et récupère les channels sauvegardés. 
+
+\mbox{\Hypertarget{serveur_8c_a923286449dcd2952e702ccd78c5a2dd1}\label{serveur_8c_a923286449dcd2952e702ccd78c5a2dd1}} 
+\index{serveur.c@{serveur.c}!initClients@{initClients}}
+\index{initClients@{initClients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{initClients()}{initClients()}}
+{\footnotesize\ttfamily void init\+Clients (\begin{DoxyParamCaption}\item[{int}]{port }\end{DoxyParamCaption})}
+
+
+
+Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer la connexion de clients. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em port} & Port sur lequel les sockets vont se connecter \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a7af790dfffb655e44ddc342e2be0fe57}\label{serveur_8c_a7af790dfffb655e44ddc342e2be0fe57}} 
+\index{serveur.c@{serveur.c}!initFiles@{initFiles}}
+\index{initFiles@{initFiles}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{initFiles()}{initFiles()}}
+{\footnotesize\ttfamily void init\+Files (\begin{DoxyParamCaption}\item[{int}]{port\+\_\+file }\end{DoxyParamCaption})}
+
+
+
+Initialise les sémaphores, tableaux de threads et autres variables nécessaire pour gérer les demandes liées aux fichiers. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em port} & Port sur lequel les sockets vont se connecter \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a7d2aebb13d0c0be748343d770ab1a3b9}\label{serveur_8c_a7d2aebb13d0c0be748343d770ab1a3b9}} 
+\index{serveur.c@{serveur.c}!isChannelNameTaken@{isChannelNameTaken}}
+\index{isChannelNameTaken@{isChannelNameTaken}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{isChannelNameTaken()}{isChannelNameTaken()}}
+{\footnotesize\ttfamily int is\+Channel\+Name\+Taken (\begin{DoxyParamCaption}\item[{char}]{name\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Vérifie si un nom de channel est déjà pris. Retourn 1 si oui, 0 sinon. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em name} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_acde6da9118014fd73e806c669fa0f544}\label{serveur_8c_acde6da9118014fd73e806c669fa0f544}} 
+\index{serveur.c@{serveur.c}!isPseudoTaken@{isPseudoTaken}}
+\index{isPseudoTaken@{isPseudoTaken}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{isPseudoTaken()}{isPseudoTaken()}}
+{\footnotesize\ttfamily int is\+Pseudo\+Taken (\begin{DoxyParamCaption}\item[{char}]{pseudo\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Vérifie si un pseudo est déjà pris. Retourne 1 si oui, 0 sinon. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em pseudo} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a0cf95c9b7e83c71bbefe80a1dd1ebdc9}\label{serveur_8c_a0cf95c9b7e83c71bbefe80a1dd1ebdc9}} 
+\index{serveur.c@{serveur.c}!joinChannel@{joinChannel}}
+\index{joinChannel@{joinChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{joinChannel()}{joinChannel()}}
+{\footnotesize\ttfamily void join\+Channel (\begin{DoxyParamCaption}\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{p,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Fonction qui permet au client de rejoindre un channel. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em p} & \\
+\hline
+{\em msg} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_aa1fd40fdb9efedf2466e7602558acd04}\label{serveur_8c_aa1fd40fdb9efedf2466e7602558acd04}} 
+\index{serveur.c@{serveur.c}!listClients@{listClients}}
+\index{listClients@{listClients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{listClients()}{listClients()}}
+{\footnotesize\ttfamily void list\+Clients (\begin{DoxyParamCaption}\item[{int}]{d\+SC }\end{DoxyParamCaption})}
+
+
+
+Envoie la liste des utilisateurs (sauf lui-\/même) au client en paramètre. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a947fbe500a5127ae800f135997c687f9}\label{serveur_8c_a947fbe500a5127ae800f135997c687f9}} 
+\index{serveur.c@{serveur.c}!login@{login}}
+\index{login@{login}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{login()}{login()}}
+{\footnotesize\ttfamily int login (\begin{DoxyParamCaption}\item[{int}]{d\+SC,  }\item[{struct \mbox{\hyperlink{structclientStruct}{client\+Struct}} $\ast$}]{p }\end{DoxyParamCaption})}
+
+
+
+Vérifie les informations de login d\textquotesingle{}un client. Retourne 1 si les informations sont bonnes, 0 sinon, ou si le pseudo est déjà pris. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em d\+SC} & \\
+\hline
+{\em p} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a0ddf1224851353fc92bfbff6f499fa97}\label{serveur_8c_a0ddf1224851353fc92bfbff6f499fa97}} 
+\index{serveur.c@{serveur.c}!main@{main}}
+\index{main@{main}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{main()}{main()}}
+{\footnotesize\ttfamily int main (\begin{DoxyParamCaption}\item[{int}]{argc,  }\item[{char $\ast$}]{argv\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Main. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em argc} & \\
+\hline
+{\em argv} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a17ce977015104d5d089985a45631f97a}\label{serveur_8c_a17ce977015104d5d089985a45631f97a}} 
+\index{serveur.c@{serveur.c}!recvMessage@{recvMessage}}
+\index{recvMessage@{recvMessage}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{recvMessage()}{recvMessage()}}
+{\footnotesize\ttfamily int recv\+Message (\begin{DoxyParamCaption}\item[{int}]{dS,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]},  }\item[{char}]{erreur\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Essaye de récupérer un fichier, affiche une erreur s\textquotesingle{}il n\textquotesingle{}y arrive pas. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em msg} & \\
+\hline
+{\em erreur} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a109c890e74718b9d888774084804ed9d}\label{serveur_8c_a109c890e74718b9d888774084804ed9d}} 
+\index{serveur.c@{serveur.c}!saveChannels@{saveChannels}}
+\index{saveChannels@{saveChannels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{saveChannels()}{saveChannels()}}
+{\footnotesize\ttfamily void save\+Channels (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Enregistre les channels dans le fichier \mbox{\hyperlink{channel_8txt}{channel.\+txt}}. 
+
+\mbox{\Hypertarget{serveur_8c_a7c110316e57350f383704c579759018c}\label{serveur_8c_a7c110316e57350f383704c579759018c}} 
+\index{serveur.c@{serveur.c}!sendMessage@{sendMessage}}
+\index{sendMessage@{sendMessage}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{sendMessage()}{sendMessage()}}
+{\footnotesize\ttfamily int send\+Message (\begin{DoxyParamCaption}\item[{int}]{dS,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]},  }\item[{char}]{erreur\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Envoie un message au socket indiqué, et affiche l\textquotesingle{}erreur passé en paramètre s\textquotesingle{}il y a une erreur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+{\em msg} & \\
+\hline
+{\em erreur} & \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Nombre d\textquotesingle{}octets envoyé, ou -\/1 s\textquotesingle{}il y a une erreur 
+\end{DoxyReturn}
+\mbox{\Hypertarget{serveur_8c_a4f000fb15417febed690ae5e83747fa2}\label{serveur_8c_a4f000fb15417febed690ae5e83747fa2}} 
+\index{serveur.c@{serveur.c}!stopServeur@{stopServeur}}
+\index{stopServeur@{stopServeur}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{stopServeur()}{stopServeur()}}
+{\footnotesize\ttfamily void stop\+Serveur (\begin{DoxyParamCaption}\item[{int}]{dS }\end{DoxyParamCaption})}
+
+
+
+Ferme le serveur. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em dS} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a5b4cf2a89060b9527302d47d4b921a26}\label{serveur_8c_a5b4cf2a89060b9527302d47d4b921a26}} 
+\index{serveur.c@{serveur.c}!transformCommand@{transformCommand}}
+\index{transformCommand@{transformCommand}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{transformCommand()}{transformCommand()}}
+{\footnotesize\ttfamily void transform\+Command (\begin{DoxyParamCaption}\item[{char}]{m\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Transforme une chaîne de caractère pour enlever les majuscules(pour ce qui suit directement @, pas les paramètres), les espaces en trop à la fin, et le retour à la ligne. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em m} & \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{serveur_8c_a200210960df0dd28aead29e0aa8fe1d4}\label{serveur_8c_a200210960df0dd28aead29e0aa8fe1d4}} 
+\index{serveur.c@{serveur.c}!updateChannel@{updateChannel}}
+\index{updateChannel@{updateChannel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{updateChannel()}{updateChannel()}}
+{\footnotesize\ttfamily void update\+Channel (\begin{DoxyParamCaption}\item[{int}]{d\+SC,  }\item[{char}]{msg\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+Update le channel avec les paramètres contenu dans le message ex \+: message = @uc Salon\+\_\+1 capacity 3 =$>$ modifie la proprieté capacity du channel nommé Salon\+\_\+1. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em msg} & \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Variable Documentation}
+\mbox{\Hypertarget{serveur_8c_acf4661bf90db48b19eceb96b2ff19033}\label{serveur_8c_acf4661bf90db48b19eceb96b2ff19033}} 
+\index{serveur.c@{serveur.c}!channels@{channels}}
+\index{channels@{channels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{channels}{channels}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structchannelStruct}{channel\+Struct}}$\ast$$\ast$ channels}
+
+\mbox{\Hypertarget{serveur_8c_a6b34d7857f24acd7c9dfed4d892f7965}\label{serveur_8c_a6b34d7857f24acd7c9dfed4d892f7965}} 
+\index{serveur.c@{serveur.c}!clients@{clients}}
+\index{clients@{clients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{clients}{clients}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structclientStruct}{client\+Struct}}$\ast$$\ast$ clients}
+
+\mbox{\Hypertarget{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}\label{serveur_8c_a84c46ac59c2266a7e8539c17adf11a9b}} 
+\index{serveur.c@{serveur.c}!dS@{dS}}
+\index{dS@{dS}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{dS}{dS}}
+{\footnotesize\ttfamily int dS}
+
+\mbox{\Hypertarget{serveur_8c_a1e380bf8222345de904a8c089d42eb24}\label{serveur_8c_a1e380bf8222345de904a8c089d42eb24}} 
+\index{serveur.c@{serveur.c}!dSFile@{dSFile}}
+\index{dSFile@{dSFile}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{dSFile}{dSFile}}
+{\footnotesize\ttfamily int d\+S\+File}
+
+\mbox{\Hypertarget{serveur_8c_a5755938e7746dcdb6bd97664a651c395}\label{serveur_8c_a5755938e7746dcdb6bd97664a651c395}} 
+\index{serveur.c@{serveur.c}!file\_manager@{file\_manager}}
+\index{file\_manager@{file\_manager}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{file\_manager}{file\_manager}}
+{\footnotesize\ttfamily pthread\+\_\+t file\+\_\+manager}
+
+\mbox{\Hypertarget{serveur_8c_ae9abf8676a6a52ae1db3bcd782728069}\label{serveur_8c_ae9abf8676a6a52ae1db3bcd782728069}} 
+\index{serveur.c@{serveur.c}!files@{files}}
+\index{files@{files}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{files}{files}}
+{\footnotesize\ttfamily struct \mbox{\hyperlink{structfileStruct}{file\+Struct}}$\ast$$\ast$ files}
+
+\mbox{\Hypertarget{serveur_8c_a6e33d22b56e8bbeeaaa8428fc7a07ae9}\label{serveur_8c_a6e33d22b56e8bbeeaaa8428fc7a07ae9}} 
+\index{serveur.c@{serveur.c}!mutex\_channel@{mutex\_channel}}
+\index{mutex\_channel@{mutex\_channel}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_channel}{mutex\_channel}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+channel}
+
+\mbox{\Hypertarget{serveur_8c_a650c6de3fef3bd5a46738fe7efb5717f}\label{serveur_8c_a650c6de3fef3bd5a46738fe7efb5717f}} 
+\index{serveur.c@{serveur.c}!mutex\_clients@{mutex\_clients}}
+\index{mutex\_clients@{mutex\_clients}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_clients}{mutex\_clients}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+clients}
+
+\mbox{\Hypertarget{serveur_8c_a61312ff206d6c1b970f640ca49889e50}\label{serveur_8c_a61312ff206d6c1b970f640ca49889e50}} 
+\index{serveur.c@{serveur.c}!mutex\_file@{mutex\_file}}
+\index{mutex\_file@{mutex\_file}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_file}{mutex\_file}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+file}
+
+\mbox{\Hypertarget{serveur_8c_abe545854910a9e187de970f1d7a12b6f}\label{serveur_8c_abe545854910a9e187de970f1d7a12b6f}} 
+\index{serveur.c@{serveur.c}!mutex\_help@{mutex\_help}}
+\index{mutex\_help@{mutex\_help}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_help}{mutex\_help}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+help}
+
+\mbox{\Hypertarget{serveur_8c_a209d0da58f7b8744281518cc3c0d5b87}\label{serveur_8c_a209d0da58f7b8744281518cc3c0d5b87}} 
+\index{serveur.c@{serveur.c}!mutex\_thread@{mutex\_thread}}
+\index{mutex\_thread@{mutex\_thread}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{mutex\_thread}{mutex\_thread}}
+{\footnotesize\ttfamily pthread\+\_\+mutex\+\_\+t mutex\+\_\+thread}
+
+\mbox{\Hypertarget{serveur_8c_ace2be3f433a6d3928bf9e69719d24747}\label{serveur_8c_ace2be3f433a6d3928bf9e69719d24747}} 
+\index{serveur.c@{serveur.c}!numberOfChannels@{numberOfChannels}}
+\index{numberOfChannels@{numberOfChannels}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{numberOfChannels}{numberOfChannels}}
+{\footnotesize\ttfamily int number\+Of\+Channels}
+
+\mbox{\Hypertarget{serveur_8c_aa65f430bdd7c8f4ded9a70ff602f5c01}\label{serveur_8c_aa65f430bdd7c8f4ded9a70ff602f5c01}} 
+\index{serveur.c@{serveur.c}!sem\_place@{sem\_place}}
+\index{sem\_place@{sem\_place}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{sem\_place}{sem\_place}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+place}
+
+\mbox{\Hypertarget{serveur_8c_a26eb128439862615082f245d1aa06003}\label{serveur_8c_a26eb128439862615082f245d1aa06003}} 
+\index{serveur.c@{serveur.c}!sem\_place\_files@{sem\_place\_files}}
+\index{sem\_place\_files@{sem\_place\_files}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{sem\_place\_files}{sem\_place\_files}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+place\+\_\+files}
+
+\mbox{\Hypertarget{serveur_8c_acceca733f7d8f65d26eed3ce2ec4671b}\label{serveur_8c_acceca733f7d8f65d26eed3ce2ec4671b}} 
+\index{serveur.c@{serveur.c}!sem\_thread@{sem\_thread}}
+\index{sem\_thread@{sem\_thread}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{sem\_thread}{sem\_thread}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+thread}
+
+\mbox{\Hypertarget{serveur_8c_a945775fe96ce68d9a5f6edf740d9ae49}\label{serveur_8c_a945775fe96ce68d9a5f6edf740d9ae49}} 
+\index{serveur.c@{serveur.c}!sem\_thread\_files@{sem\_thread\_files}}
+\index{sem\_thread\_files@{sem\_thread\_files}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{sem\_thread\_files}{sem\_thread\_files}}
+{\footnotesize\ttfamily sem\+\_\+t sem\+\_\+thread\+\_\+files}
+
+\mbox{\Hypertarget{serveur_8c_a6b67ec3785df1f36469a10e68b64ab6f}\label{serveur_8c_a6b67ec3785df1f36469a10e68b64ab6f}} 
+\index{serveur.c@{serveur.c}!thread@{thread}}
+\index{thread@{thread}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{thread}{thread}}
+{\footnotesize\ttfamily pthread\+\_\+t$\ast$ thread}
+
+\mbox{\Hypertarget{serveur_8c_a33aafbae4f7bace80fdd1c706d08f2ed}\label{serveur_8c_a33aafbae4f7bace80fdd1c706d08f2ed}} 
+\index{serveur.c@{serveur.c}!thread\_cleaner@{thread\_cleaner}}
+\index{thread\_cleaner@{thread\_cleaner}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{thread\_cleaner}{thread\_cleaner}}
+{\footnotesize\ttfamily pthread\+\_\+t thread\+\_\+cleaner}
+
+\mbox{\Hypertarget{serveur_8c_a4f21a55a37acbcd25109cc06cd431832}\label{serveur_8c_a4f21a55a37acbcd25109cc06cd431832}} 
+\index{serveur.c@{serveur.c}!thread\_cleaner\_files@{thread\_cleaner\_files}}
+\index{thread\_cleaner\_files@{thread\_cleaner\_files}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{thread\_cleaner\_files}{thread\_cleaner\_files}}
+{\footnotesize\ttfamily pthread\+\_\+t thread\+\_\+cleaner\+\_\+files}
+
+\mbox{\Hypertarget{serveur_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}\label{serveur_8c_a03eee7a31ce95162ba3b26bdeb7f6af8}} 
+\index{serveur.c@{serveur.c}!thread\_files@{thread\_files}}
+\index{thread\_files@{thread\_files}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{thread\_files}{thread\_files}}
+{\footnotesize\ttfamily pthread\+\_\+t$\ast$ thread\+\_\+files}
+
+\mbox{\Hypertarget{serveur_8c_a04ffa6156bb742eeefe6366a0f7b977a}\label{serveur_8c_a04ffa6156bb742eeefe6366a0f7b977a}} 
+\index{serveur.c@{serveur.c}!zombieStack@{zombieStack}}
+\index{zombieStack@{zombieStack}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{zombieStack}{zombieStack}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structStack}{Stack}}$\ast$ zombie\+Stack}
+
+\mbox{\Hypertarget{serveur_8c_a67a399e68ef9b2baefe6305e66d9e696}\label{serveur_8c_a67a399e68ef9b2baefe6305e66d9e696}} 
+\index{serveur.c@{serveur.c}!zombieStackFiles@{zombieStackFiles}}
+\index{zombieStackFiles@{zombieStackFiles}!serveur.c@{serveur.c}}
+\doxysubsubsection{\texorpdfstring{zombieStackFiles}{zombieStackFiles}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structStack}{Stack}}$\ast$ zombie\+Stack\+Files}
+
