@@ -290,7 +290,7 @@ void* receiveFileProcess(void * parametres){
         recvMessage(dSF, m, "Erreur receive confirmation fopen");
 
         if(strcmp(m, "ERR") == 0){
-          puts("Erreur lors de la réception du fichier, veuillez réessayer");
+          putsRed("Erreur lors de la réception du fichier, veuillez réessayer");
         }
         else if(strcmp(m, "OK") == 0) {
           char path[SIZE_MESSAGE] = "./download_client/";
@@ -300,7 +300,7 @@ void* receiveFileProcess(void * parametres){
           FILE *fp = fopen(path, "wb");
           if(fp == NULL) {
             sendMessage(dSF, "ERR", "Erreur send erreur openFile");
-            puts("Erreur lors de la réception du fichier, veuillez réssayer");
+            putsRed("Erreur lors de la réception du fichier, veuillez réssayer");
           }
           else {
             sendMessage(dSF, "OK", "Erreur send debute reception");
@@ -316,12 +316,15 @@ void* receiveFileProcess(void * parametres){
                   if(dataGet == -1) {
                     perror("Erreur recv file data");exit(1);
                   }
-                  dataTotal += dataGet;
                   fwrite(data, sizeof(data[0]), sizeToGet, fp);
                   sendMessage(dSF, "OK", "Erreur file confirm data");
                   free(data);
+                  dataTotal += dataGet;
                 }
               } while(sizeToGet > 0);
+              if(size - dataTotal <= 0) {
+                printf("\e[1;34mLe fichier %s a bien été enregistré dans le dossier /download_client de l'application\n", f->filename);
+              }
             }
             fclose(fp);
           }
@@ -355,7 +358,7 @@ void* sendFileProcess(void * parametres) {
   strcat(path, f->filename);
 
   if(stat(path, &st) == -1){
-    puts("Erreur lors de la lecture du fichier. Veuillez réessayer.");
+    putsRed("Erreur lors de la lecture du fichier. Veuillez réessayer.");
   }else{
     int size = st.st_size;
     char sizeString[10];
@@ -380,7 +383,7 @@ void* sendFileProcess(void * parametres) {
         // On attends que le serveur nous dis si un fichier n'existe pas déjà sous ce nom
         recvMessage(dSF, m, "Erreur file filename");
         if(strcmp(m, "ERR") == 0) {
-          puts("Une erreur s'est produite sur le serveur, veuillez réessayer");
+          putsRed("Une erreur s'est produite sur le serveur, veuillez réessayer");
         }
         else if(strcmp(m, "OK") == 0) {
           // On envoie alors la taille, puis les données
@@ -393,7 +396,7 @@ void* sendFileProcess(void * parametres) {
             if (fp == NULL){
               //On averti le serveur
               sendMessage(dSF,"ERR","Erreur sending erreur fopen");
-              puts("Erreur d'ouverture du fichier, veuillez réessayer");
+              putsRed("Erreur d'ouverture du fichier, veuillez réessayer");
             }else{
               sendMessage(dSF,"OK","Erreur sending erreur fopen");
 
@@ -412,6 +415,12 @@ void* sendFileProcess(void * parametres) {
                 }
                 recvMessage(dSF, m, "Erreur recv file OK");
                 free(data);
+              }
+              if(strcmp(m, "OK") == 0) {
+                printf("\e[1;34mLe fichier %s a bien été envoyé sur le serveur\n", f->filename);
+              }
+              else {
+                putsRed("Une erreur s'est produite, le fichier n'a pas pu être envoyé");
               }
               fclose(fp);
             }

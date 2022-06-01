@@ -322,7 +322,7 @@ int login(int dSC, struct clientStruct * p) {
 }
 
 /**
- * @brief Envoie le message d'un client vers tous les autres
+ * @brief Envoie le message d'un client vers tous les autres du même salon
  * 
  * @param p 
  * @param msg 
@@ -427,13 +427,17 @@ void help(int dSC) {
   }else{ //pas d'erreur
     char ch;
     char help[SIZE_MESSAGE];
-    //On vide le help (erreur nouvelle)
     help[0] = '\0';
+    int sizeEntete = strlen("\e[1;92m");
     int count = 0;
     while( ( ch = fgetc(fileSource) ) != EOF ){
+      if(count == 0) {
+        strcpy(help, "\e[1;92m");
+        count = sizeEntete;
+      }
       strncat(help,&ch,1);
       count++;
-      if(ch == '\n' || count == 255){
+      if(ch == '\n' || count == SIZE_MESSAGE - 1){
         
         //On remplace le dernier caractère par un \0
         if(ch == '\n'){
@@ -461,12 +465,13 @@ void help(int dSC) {
  * @param dSC 
  */
 void listClients(int dSC) {
-  sendMessage(dSC, "Pseudo              | Salon", "Erreur send entête listClients");
+  sendMessage(dSC, "\e[1;92mPseudo              | Salon", "Erreur send entête listClients");
   pthread_mutex_lock(&mutex_clients);
   for(int i=0; i<MAX_CLIENTS; i++) {
     if(clients[i] != NULL) {
       if(clients[i]->pseudo != NULL) {
         char msg[SIZE_MESSAGE] = "";
+        strcat(msg, "\e[1;92m");
         strcat(msg, clients[i]->pseudo);
         int size = strlen(clients[i]->pseudo);
         for(int i=size; i<20; i++)
@@ -604,29 +609,26 @@ void filesServeur(int dSC){
     }
     //Si le dossier n'est pas vide
     if(nb_file > 0){
-      char *tab_file[nb_file]; //Variable qui va contenir le nom des fichiers
       nb_file = 0;
-      char msg[SIZE_MESSAGE] = "Listes des fichiers présents dans le serveur : \n"; //Variable à destination du client qui va stocker les noms des fichiers 
+      sendMessage(dSC, "\e[1;92mListes des fichiers présents dans le serveur :", "Error send entete file"); //Variable à destination du client qui va stocker les noms des fichiers 
       rewinddir(dir); //réinitialise le parcours du dossier
       while ((ent = readdir(dir)) != NULL) {
         //Pour chaque fichier du dossier, on récupère son nom et on le concatène dans msg
         if(strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0 ){
-          tab_file[nb_file] = malloc(sizeof(char) * (strlen(ent->d_name) + 1));
-          strcpy(tab_file[nb_file],ent->d_name);
-          strcat(msg, tab_file[nb_file]);
-          strcat(msg, "\n");
+          char msg[SIZE_MESSAGE];
+          strcpy(msg, "\e[1;92m ");
+          strcat(msg,ent->d_name);
+          sendMessage(dSC, msg, "Erreur envoi liste fichiers serveur");
           nb_file++;
         }
       }
       //Quand on a récupéré tous les fichiers, on envoie la liste au client
-      sendMessage(dSC, msg, "Erreur envoi liste fichiers serveur");
       closedir(dir);
     }else{
-      puts("Aucun fichier dans le dossier \"download_server\"");
+      sendMessage(dSC, "\e[1;92mAucun fichier dans le dossier \"download_server\"", "Error send no file");
     }
   }else{
-    perror("Erreur open download_server");
-    exit(1);
+    sendMessage(dSC, "\e[1;92mLe serveur a eu un problème pour accéder aux fichiers, veuillez réessayer", "Error send error files");
   }
 }
 
@@ -641,7 +643,8 @@ void allChannels(int dSC){
   for(int i =0; i<MAX_CHANNEL; i++){
     if(channels[i] != NULL){
       char temp[strlen(channels[i]->name)];
-      strcpy(temp,channels[i]->name);
+      strcpy(temp, "\e[1;92m");
+      strcat(temp,channels[i]->name);
       char msg[SIZE_MESSAGE];
       sprintf(msg, "%s : %d/%d",temp,channels[i]->count,channels[i]->capacity);//Envoie le nom du channel et le nombre de personnes connectées
       sendMessage(dSC,msg,"Erreur envoi channel");
@@ -677,7 +680,7 @@ void joinChannel(struct clientStruct* p, char msg[]){
           }
           p->channel = channels[i];
           p->channel->count ++;
-          sendMessage(p->dSC, "Channel rejoint !", "Erreur sending join channel");
+          sendMessage(p->dSC, "\e[1;92mChannel rejoint !", "Erreur sending join channel");
           found = 1;
           break;
         }else{
@@ -687,9 +690,9 @@ void joinChannel(struct clientStruct* p, char msg[]){
     }
   }
   if(found == 0){//Si le channel n'est pas trouvé
-    sendMessage(p->dSC,"Ce channel n'existe pas","Erreur sending channel not found");
+    sendMessage(p->dSC,"\e[1;92mCe channel n'existe pas","Erreur sending channel not found");
   }else if (found == 2){//Si le channel est plein
-    sendMessage(p->dSC,"Ce channel est plein","Erreur sending channel full");
+    sendMessage(p->dSC,"\e[1;92mCe channel est plein","Erreur sending channel full");
   }
   
 
@@ -710,11 +713,11 @@ void disconnectChannel(struct clientStruct* p){
 
   //Si le client est dans aucun channel
   if (p->channel == NULL){
-    sendMessage(p->dSC, "Vous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
+    sendMessage(p->dSC, "\e[1;92mVous n'êtes pas dans un channel !", "Erreur sending user aren't in a channel");
   }else{
     p->channel->count--;
     p->channel = NULL;
-    sendMessage(p->dSC, "Vous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
+    sendMessage(p->dSC, "\e[1;92mVous êtes sorti du channel! Retour au channel général!", "Erreur sending user is out of a channel");
   }
   
   pthread_mutex_unlock(&mutex_channel);
@@ -839,29 +842,29 @@ void updateChannel(int dSC, char msg[]){
       if(strcmp(attribute,"capacity") == 0){
         channels[find]->capacity = atoi(value);
         free(value);
-        sendMessage(dSC,"Capacité max du channel modifiée avec succès", "Erreur send confirmation update");  
+        sendMessage(dSC,"\e[1;92mCapacité max du channel modifiée avec succès", "Erreur send confirmation update");  
       }else if (strcmp(attribute,"name") == 0){
         if(0 == isChannelNameTaken(value)){
           free(channels[find]->name);
           channels[find]->name = value;
-          sendMessage(dSC,"Nom modifié avec succès", "Erreur send confirmation update");
+          sendMessage(dSC,"\e[1;92mNom modifié avec succès", "Erreur send confirmation update");
         }else{
-          sendMessage(dSC,"Nom de channel déjà utilisé","Erreur send @uc channel name used");
+          sendMessage(dSC,"\e[1;92mNom de channel déjà utilisé","Erreur send @uc channel name used");
         }
       }else if(strcmp(attribute,"description") == 0){
         free(channels[find]->description);
         channels[find]->description = value;
-        sendMessage(dSC,"Description modifiée avec succès", "Erreur send confirmation update");
+        sendMessage(dSC,"\e[1;92mDescription modifiée avec succès", "Erreur send confirmation update");
       }
     }else{
-      sendMessage(dSC,"Le channel n'a pas été trouvé", "Erreur send confirmation update");
+      sendMessage(dSC,"\e[1;92mLe channel n'a pas été trouvé", "Erreur send confirmation update");
     }
     pthread_mutex_unlock(&mutex_channel);
     //Ne pas oublier de free() si l'on a pas modifié les valeurs
     free(name);
     free(attribute);
   }else{
-    sendMessage(dSC,"Le format de la commande n'est pas respecté","Erreur send @uc command format");
+    sendMessage(dSC,"\e[1;92mLe format de la commande n'est pas respecté","Erreur send @uc command format");
   }
 }
 /**
@@ -962,12 +965,12 @@ void addChannel(int dSC,char msg[]){
       numberOfChannels++;
 
       free(capacityChar);
-      sendMessage(dSC,"Le channel à été créé avec succès","Erreur send channel successfully created");
+      sendMessage(dSC,"\e[1;92mLe channel à été créé avec succès","Erreur send channel successfully created");
     }else{
-      sendMessage(dSC,"Le nom du channel est déjà pris","Erreur send channel name taken");
+      sendMessage(dSC,"\e[1;92mLe nom du channel est déjà pris","Erreur send channel name taken");
     }
   }else{//La string ne comporte pas le bon format
-    sendMessage(dSC,"Le format de la commande n'est pas respecté","Erreur send error create chan");
+    sendMessage(dSC,"\e[1;92mLe format de la commande n'est pas respecté","Erreur send error create chan");
   }
 
   free(nameCapacityDescription);
@@ -981,16 +984,12 @@ void addChannel(int dSC,char msg[]){
  */
 void createChannel(int dSC, char msg[]){
   pthread_mutex_lock(&mutex_channel);
-  char reponse[SIZE_MESSAGE];
   if(numberOfChannels < MAX_CHANNEL) {   //Si le nombre de channel actuel permet d'en créer un nouveau
     addChannel(dSC,msg);
   }else{//Sinon
-    strcpy(reponse,"Impossible de créer le channel, trop de channel");
-    sendMessage(dSC,reponse,"Erreur send impossible to create channel");
+    sendMessage(dSC,"\e[1;92mImpossible de créer le channel, trop de channel","Erreur send impossible to create channel");
   }
   pthread_mutex_unlock(&mutex_channel);
-
-
 }
 /**
  * @brief Supprime un channel
@@ -1015,7 +1014,7 @@ void deleteChannel(int dSC, char msg[]){
           if(clients[i] != NULL){
             if(clients[j]->channel == channels[i]){//Si la personne est connecté au salon que l'on veut supprimer
               clients[j]->channel = NULL;
-              sendMessage(clients[j]->dSC,"Le channel dans lequel vous êtes vient d'être supprimé\nVous rejoignez le channel général","Erreur envoi message delete chan");
+              sendMessage(clients[j]->dSC,"\e[1;92mLe channel dans lequel vous êtes vient d'être supprimé\nVous rejoignez le channel général","Erreur envoi message delete chan");
             }
           }
         }
@@ -1025,14 +1024,14 @@ void deleteChannel(int dSC, char msg[]){
         free(channels[i]->description);
         free(channels[i]);
         channels[i] = NULL;
-        sendMessage(dSC,"Le channel à été supprimé avec succès", "Erreur message confirmation suppression chan");
+        sendMessage(dSC,"\e[1;92mLe channel à été supprimé avec succès", "Erreur message confirmation suppression chan");
         done = 1;
         break;
       }
     }
   }
   if(done == 0){
-    sendMessage(dSC,"Suppression annulé : le channel n'existe pas","Erreur send confirmation suppr chan");
+    sendMessage(dSC,"\e[1;92mSuppression annulé : le channel n'existe pas","Erreur send confirmation suppr chan");
   }
   pthread_mutex_unlock(&mutex_channel);
 
